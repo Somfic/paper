@@ -1,0 +1,30 @@
+/target
+paper.toml
+/data
+/.claude
+node_modules
+
+# Generated schema (written by `cargo build` via draad)
+/frontend/src/lib/schema/index.ts
+
+# Output
+.output
+.svelte-kit
+build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Nix/direnv
+.direnv
+result
