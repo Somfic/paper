@@ -95,8 +95,20 @@
 	let error = $state<string | null>(null);
 	let fraction = $state(0);
 	let loc = $state<{ current: number; total: number } | null>(null);
+	let chapterLabel = $state("");
+	let chapterPageRaw = $state(0); // foliate's raw page index (0 = leading pad)
+	let chapterPagesRaw = $state(0); // includes 1 leading + 1 trailing pad page
 	let ready = $state(false);
 	let view: any = null;
+
+	// Content pages in the current chapter (strip foliate's pad pages), the
+	// current 1-based page, and how many remain to the chapter's end.
+	const chapterPages = $derived(Math.max(1, chapterPagesRaw - 2));
+	const chapterPage = $derived(
+		Math.min(chapterPages, Math.max(1, chapterPageRaw)),
+	);
+	const chapterLeft = $derived(Math.max(0, chapterPages - chapterPage));
+	const showPageInfo = $derived(settings.flow === "paginated" && chapterPagesRaw > 2);
 
 	const displayTitle = $derived(metaTitle || book?.title || "");
 
@@ -361,6 +373,11 @@
 					const l = e.detail?.location;
 					if (l && typeof l.total === "number")
 						loc = { current: l.current ?? 0, total: l.total };
+					chapterLabel = e.detail?.tocItem?.label ?? "";
+					// foliate pads each section with a blank page front and back, so
+					// content pages are index 1..(pages-2); see calibration.
+					chapterPageRaw = view?.renderer?.page ?? 0;
+					chapterPagesRaw = view?.renderer?.pages ?? 0;
 					if (canPersist && e.detail?.cfi) {
 						try {
 							localStorage.setItem(posKey(bid), e.detail.cfi);
@@ -594,6 +611,18 @@
 		{/if}
 	</div>
 
+	{#if showPageInfo}
+		<div class="statusbar">
+			<span class="chap" title={chapterLabel}>{chapterLabel}</span>
+			<span class="pages">
+				{chapterPage} / {chapterPages}
+				{#if chapterLeft > 0}
+					· {chapterLeft} left in chapter
+				{/if}
+			</span>
+		</div>
+	{/if}
+
 	<div class="progress" aria-hidden="true">
 		<div class="bar" style="width:{fraction * 100}%"></div>
 	</div>
@@ -777,6 +806,28 @@
 	.nav:hover {
 		opacity: 1;
 		color: var(--fg);
+	}
+	.statusbar {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.4rem 1rem;
+		font-size: 0.78rem;
+		color: var(--dim);
+		background: var(--chrome);
+		border-top: 1px solid var(--border);
+	}
+	.statusbar .chap {
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.statusbar .pages {
+		flex: 0 0 auto;
+		font-variant-numeric: tabular-nums;
 	}
 	.progress {
 		flex: 0 0 auto;
