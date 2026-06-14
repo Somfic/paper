@@ -160,7 +160,7 @@
 				background: ${t.bg} !important;
 				font-size: ${s.fontSize}% !important;
 			}
-			body { background: ${t.bg} !important; color: ${t.fg} !important; }
+			body { background-color: ${t.bg} !important; color: ${t.fg} !important; }
 			p, li, blockquote, dd, div, span { color: inherit; }
 			p, li, blockquote, dd {
 				line-height: ${s.lineHeight} !important;
@@ -564,6 +564,20 @@
 			{/if}
 			<div class="view" bind:this={container}>
 				{#if showSpine}<div class="spine" aria-hidden="true"></div>{/if}
+				{#if settings.shading}
+					<svg class="grain" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+						<filter id="paper-grain">
+							<feTurbulence
+								type="fractalNoise"
+								baseFrequency="0.8"
+								numOctaves="1"
+								stitchTiles="stitch"
+							/>
+							<feColorMatrix type="saturate" values="0" />
+						</filter>
+						<rect width="100%" height="100%" filter="url(#paper-grain)" />
+					</svg>
+				{/if}
 			</div>
 			{#if showStacks}
 				<div
@@ -683,6 +697,17 @@
 		min-width: 0;
 		height: 100%;
 		overflow: hidden;
+	}
+
+	/* paper grain overlaid on the page (over the iframe text, non-interactive) */
+	.grain {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 4;
+		pointer-events: none;
+		opacity: 0.2;
 	}
 
 	/* center spine / gutter shadow of an open book */
