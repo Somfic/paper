@@ -96,6 +96,8 @@
 	let fraction = $state(0);
 	let loc = $state<{ current: number; total: number } | null>(null);
 	let chapterLabel = $state("");
+	let toc = $state<{ label: string; href: string; depth: number }[]>([]);
+	let currentHref = $state("");
 	let chapterPageRaw = $state(0); // foliate's raw page index (0 = leading pad)
 	let chapterPagesRaw = $state(0); // includes 1 leading + 1 trailing pad page
 	let ready = $state(false);
@@ -161,6 +163,48 @@
 		if (typeof x === "string") return x;
 		return pickText(x?.name ?? x);
 	}
+
+	// Flatten foliate's (possibly nested) TOC into a list with depth for the menu.
+	function flattenToc(
+		items: any[],
+		depth = 0,
+		out: { label: string; href: string; depth: number }[] = [],
+	): { label: string; href: string; depth: number }[] {
+		for (const it of items ?? []) {
+			if (it?.href) out.push({ label: pickText(it.label), href: it.href, depth });
+			if (it?.subitems?.length) flattenToc(it.subitems, depth + 1, out);
+		}
+		return out;
+	}
+
+	let isFullscreen = $state(false);
+	function toggleFullscreen() {
+		if (document.fullscreenElement) document.exitFullscreen?.();
+		else document.documentElement.requestFullscreen?.().catch(() => {});
+	}
+	$effect(() => {
+		const onFs = () => (isFullscreen = !!document.fullscreenElement);
+		document.addEventListener("fullscreenchange", onFs);
+		return () => document.removeEventListener("fullscreenchange", onFs);
+	});
+
+	async function goToChapter(href: string) {
+		try {
+			await view?.goTo?.(href);
+		} catch (e) {
+			console.warn("goTo chapter failed", e);
+		}
+	}
+
+	const chapterItems = $derived<PopoverMenuEntry[]>(
+		toc.map((c) => ({
+			kind: "item",
+			// indent sub-items with en-spaces (preserved in flex labels)
+			label: (c.depth > 0 ? " ".repeat(c.depth * 2) : "") + (c.label || "—"),
+			selected: c.href === currentHref,
+			onclick: () => goToChapter(c.href),
+		})),
+	);
 
 	// ── content stylesheet injected into the book itself ──
 	function contentCSS(s: Settings): string {
@@ -374,6 +418,7 @@
 					if (l && typeof l.total === "number")
 						loc = { current: l.current ?? 0, total: l.total };
 					chapterLabel = e.detail?.tocItem?.label ?? "";
+					currentHref = e.detail?.tocItem?.href ?? currentHref;
 					// foliate pads each section with a blank page front and back, so
 					// content pages are index 1..(pages-2); see calibration.
 					chapterPageRaw = view?.renderer?.page ?? 0;
@@ -413,6 +458,7 @@
 				const md = view.book?.metadata ?? {};
 				metaTitle = pickText(md.title);
 				metaAuthor = authorName(md.author);
+				toc = flattenToc(view.book?.toc);
 
 				ready = true;
 				applyRenderer();
@@ -554,6 +600,18 @@
 			<span class="title">{displayTitle}</span>
 			{#if metaAuthor}<span class="author">{metaAuthor}</span>{/if}
 		</div>
+		<Button
+			variant="ghost"
+			icon={isFullscreen ? "Minimize" : "Maximize"}
+			onclick={toggleFullscreen}
+		/>
+		{#if toc.length > 0}
+			<PopoverMenu items={chapterItems} align="right">
+				{#snippet trigger()}
+					<Button variant="ghost" icon="List" />
+				{/snippet}
+			</PopoverMenu>
+		{/if}
 		<PopoverMenu items={menuItems} align="right">
 			{#snippet trigger()}
 				<Button variant="ghost" icon="Type" />
