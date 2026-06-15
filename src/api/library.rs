@@ -1,6 +1,6 @@
 use crate::app::AppContext;
-pub use crate::app::Error;
 pub use crate::books::Book;
+pub use crate::error::Error;
 
 use crate::books;
 

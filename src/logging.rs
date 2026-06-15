@@ -7,6 +7,16 @@ use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
 
+/// Install the global tracing subscriber with paper's compact formatter.
+/// Honors `RUST_LOG`, defaulting to `info`.
+pub fn init() {
+    use tracing_subscriber::EnvFilter;
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+        .event_format(PaperFormatter)
+        .init();
+}
+
 struct MessageExtractor {
     message: String,
     fields: Vec<(String, String)>,

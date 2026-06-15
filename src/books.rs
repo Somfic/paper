@@ -1,4 +1,5 @@
-use crate::app::{Pool, Result};
+use crate::db::Pool;
+use crate::error::Result;
 
 /// A book in the library. For this milestone the metadata is just what we can
 /// derive from the uploaded file (title from the filename); richer metadata
@@ -40,16 +41,20 @@ pub async fn set_file_path(db: &Pool, id: i64, file_path: &str) -> Result<()> {
 }
 
 pub async fn list(db: &Pool) -> Result<Vec<Book>> {
-    Ok(sqlx::query_as::<_, Book>("SELECT * FROM books ORDER BY id DESC")
-        .fetch_all(db)
-        .await?)
+    Ok(
+        sqlx::query_as::<_, Book>("SELECT * FROM books ORDER BY id DESC")
+            .fetch_all(db)
+            .await?,
+    )
 }
 
 pub async fn get(db: &Pool, id: i64) -> Result<Option<Book>> {
-    Ok(sqlx::query_as::<_, Book>("SELECT * FROM books WHERE id = ?")
-        .bind(id)
-        .fetch_optional(db)
-        .await?)
+    Ok(
+        sqlx::query_as::<_, Book>("SELECT * FROM books WHERE id = ?")
+            .bind(id)
+            .fetch_optional(db)
+            .await?,
+    )
 }
 
 pub async fn delete(db: &Pool, id: i64) -> Result<()> {

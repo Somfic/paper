@@ -2,21 +2,24 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::Router;
 use clap::Parser;
-use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
 mod api;
 mod app;
 mod books;
 mod config;
+mod db;
+mod error;
 mod logging;
 mod proxy;
+mod server;
+mod storage;
 mod upload;
 
-use app::{AppContext, Result};
+use app::AppContext;
 use config::Config;
+use error::Result;
 
 // Runs the scan→emit codegen at macro-expansion time. A plain `cargo build`
 // writes `frontend/src/lib/schema/index.ts` as a side effect — no build.rs.
@@ -50,6 +53,29 @@ struct Cli {
     dev: bool,
 }
 
+impl Cli {
+    /// Load the config file and layer the CLI flags on top of it.
+    fn load_config(&self) -> Result<Config> {
+        let mut config = Config::from_file(&self.config)?;
+        config.apply_env_overrides();
+
+        if let Some(host) = self.host.clone() {
+            config.host = host;
+        }
+        if let Some(port) = self.port {
+            config.port = port;
+        }
+        if let Some(data_dir) = self.data_dir.clone() {
+            config.data_dir = data_dir;
+        }
+        if self.database_url.is_some() {
+            config.database_url = self.database_url.clone();
+        }
+
+        Ok(config)
+    }
+}
+
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     match run().await {
@@ -62,84 +88,14 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn run() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .event_format(logging::PaperFormatter)
-        .init();
+    logging::init();
 
     let cli = Cli::parse();
+    let config = Arc::new(cli.load_config()?);
 
-    let mut config = Config::from_file(&cli.config)?;
-    config.apply_env_overrides();
+    let ctx = AppContext::new(config.clone()).await?;
+    let router = server::build_router(ctx, cli.dev);
 
-    if let Some(host) = cli.host {
-        config.host = host;
-    }
-    if let Some(port) = cli.port {
-        config.port = port;
-    }
-    if let Some(data_dir) = cli.data_dir {
-        config.data_dir = data_dir;
-    }
-    if cli.database_url.is_some() {
-        config.database_url = cli.database_url;
-    }
-
-    let config = Arc::new(config);
-
-    // Initialize core services
-    let pool = app::create_pool(&config).await?;
-    let storage = app::create_storage(&config).await?;
-    let events = draad::runtime::EventBus::new();
-    let http = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()?;
-
-    let ctx = AppContext {
-        db: pool,
-        storage,
-        config: config.clone(),
-        events,
-        conns: draad::runtime::Conns::new(),
-        http,
-    };
-
-    // Build router
-    let mut router = Router::new();
-
-    // Mount schema-generated RPC routes (JSON one-shots).
-    info!("mounting rpc at /api/rpc");
-    router = router.nest("/api/rpc", rpc_router().with_state(ctx.clone()));
-
-    // Binary routes: epub upload + file serving (absolute paths, merged flat).
-    info!("mounting upload + file routes");
-    router = router.merge(upload::router().with_state(ctx.clone()));
-
-    // Frontend: dev proxy or static files
-    if cli.dev {
-        // The vite dev server is started alongside the backend by `just dev`;
-        // here we just proxy the UI through to it.
-        let dev_port = 5174u16;
-        info!("proxying ui → http://localhost:{dev_port}");
-        let dev_proxy = proxy::DevProxy::new(dev_port);
-        router = router.fallback(move |req: axum::extract::Request| {
-            proxy::dev_proxy_handler(axum::extract::State(dev_proxy.clone()), req)
-        });
-    } else {
-        let build_dir = PathBuf::from("frontend/build");
-        if build_dir.exists() {
-            info!("mounting ui at /");
-            let fallback = ServeFile::new(build_dir.join("index.html"));
-            let service = ServeDir::new(&build_dir)
-                .append_index_html_on_directories(true)
-                .fallback(fallback);
-            router = router.fallback_service(service);
-        }
-    }
-
-    // Start server
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!("listening on http://{addr}");

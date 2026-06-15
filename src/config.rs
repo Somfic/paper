@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::app::{Error, Result};
+use crate::error::{Error, Result};
 
 #[derive(Deserialize)]
 pub struct Config {

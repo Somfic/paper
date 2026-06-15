@@ -10,8 +10,9 @@ use axum::{
     routing::{get, post},
 };
 
-use crate::app::{AppContext, Error};
+use crate::app::AppContext;
 use crate::books::{self, Book};
+use crate::error::Error;
 
 /// Generous cap — epubs are small, but some illustrated ones run large.
 const MAX_UPLOAD: usize = 64 * 1024 * 1024;

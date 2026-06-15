@@ -4,9 +4,6 @@ paper.toml
 /.claude
 node_modules
 
-# Generated schema (written by `cargo build` via draad)
-/frontend/src/lib/schema/index.ts
-
 # Output
 .output
 .svelte-kit

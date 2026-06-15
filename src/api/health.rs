@@ -1,5 +1,5 @@
 use crate::app::AppContext;
-pub use crate::app::Error;
+pub use crate::error::Error;
 
 /// Liveness probe + build info. Exists mainly to prove the draad RPC pipeline
 /// (Rust trait → generated TS client) is wired end-to-end before any real
