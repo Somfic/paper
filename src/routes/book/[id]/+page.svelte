@@ -6,6 +6,7 @@
 	import ReaderStage from "$lib/components/reader/ReaderStage.svelte";
 	import ReaderStatusBar from "$lib/components/reader/ReaderStatusBar.svelte";
 	import ReaderProgress from "$lib/components/reader/ReaderProgress.svelte";
+	import FootnotePopover from "$lib/components/reader/FootnotePopover.svelte";
 
 	const id = $derived(Number(page.params.id));
 
@@ -43,6 +44,8 @@
 	{/if}
 
 	<ReaderProgress fraction={reader.fraction} />
+
+	<FootnotePopover footnotes={reader.footnotes} />
 </div>
 
 <style>
