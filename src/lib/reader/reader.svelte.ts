@@ -41,6 +41,11 @@ export class ReaderController {
 	/** Footnote references open in a popover instead of navigating; see there. */
 	footnotes: FootnoteController;
 
+	// Sections render in their own iframe documents, so anything that needs to
+	// watch the text (selections, for one) has to be handed each one as it
+	// arrives. Set by whoever cares; see QuoteCard.svelte.
+	onSectionLoad: ((doc: Document) => void) | null = null;
+
 	// ── private engine refs ────────────────────────────────────────
 	#settings: ReaderSettings;
 	#view: any = null;
@@ -204,6 +209,7 @@ export class ReaderController {
 					// Arrow/space keys fire on the section's own document when focus is
 					// inside the iframe, so they never reach the window listener.
 					e.detail?.doc?.addEventListener("keydown", this.onKey);
+					if (e.detail?.doc) this.onSectionLoad?.(e.detail.doc);
 					// A section just rendered — force foliate to recompute its page
 					// height now that content exists (it measures short at open()).
 					this.scheduleRelayout();
