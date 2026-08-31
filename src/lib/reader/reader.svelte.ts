@@ -4,6 +4,7 @@ import { posKey, type Book } from "$lib/library";
 import { THEMES, contentCSS, type Theme } from "./themes";
 import type { ReaderSettings } from "./settings.svelte";
 import { FootnoteController } from "./footnotes.svelte";
+import { FoldController } from "./folds.svelte";
 import {
 	authorName,
 	flattenToc,
@@ -40,6 +41,8 @@ export class ReaderController {
 
 	/** Footnote references open in a popover instead of navigating; see there. */
 	footnotes: FootnoteController;
+	/** Dog-eared pages, anchored to CFIs; see folds.svelte.ts. */
+	folds = new FoldController();
 
 	// ── private engine refs ────────────────────────────────────────
 	#settings: ReaderSettings;
@@ -181,6 +184,7 @@ export class ReaderController {
 				container.append(view);
 				container.addEventListener("wheel", this.onWheel, { passive: false });
 				this.footnotes.attach(view);
+				this.folds.attach(view, bookId);
 
 				// Recompute foliate's page height whenever the container's size
 				// settles/changes (fires on first real layout + every resize).
@@ -276,6 +280,7 @@ export class ReaderController {
 		this.#destroyed = true;
 		this.footnotes.detach();
 		this.#sectionListeners.clear();
+		this.folds.detach();
 		window.removeEventListener("keydown", this.onKey);
 		document.removeEventListener("fullscreenchange", this.#onFullscreen);
 		this.#container?.removeEventListener("wheel", this.onWheel);
