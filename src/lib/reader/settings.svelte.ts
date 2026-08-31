@@ -8,6 +8,8 @@ export type Settings = {
 	flow: "paginated" | "scrolled";
 	singleColumn: boolean;
 	shading: boolean;
+	pacer: boolean;
+	pacerWpm: number; // 0 = pace to the measured speed, > 0 = the reader's target
 };
 
 export const DEFAULTS: Settings = {
@@ -18,6 +20,8 @@ export const DEFAULTS: Settings = {
 	flow: "paginated",
 	singleColumn: false,
 	shading: false,
+	pacer: false,
+	pacerWpm: 0,
 };
 
 const STORAGE_KEY = "paper.reader";
@@ -47,6 +51,8 @@ export class ReaderSettings {
 	flow = $state<Settings["flow"]>(DEFAULTS.flow);
 	singleColumn = $state(DEFAULTS.singleColumn);
 	shading = $state(DEFAULTS.shading);
+	pacer = $state(DEFAULTS.pacer);
+	pacerWpm = $state(DEFAULTS.pacerWpm);
 
 	#dispose: (() => void) | null = null;
 
@@ -64,6 +70,8 @@ export class ReaderSettings {
 			flow: this.flow,
 			singleColumn: this.singleColumn,
 			shading: this.shading,
+			pacer: this.pacer,
+			pacerWpm: this.pacerWpm,
 		};
 	}
 
@@ -84,6 +92,18 @@ export class ReaderSettings {
 	dispose() {
 		this.#dispose?.();
 		this.#dispose = null;
+	}
+
+	/**
+	 * Step the pacer's target speed by `delta` wpm, starting from `from` (what it
+	 * paces to now) the first time — so the first nudge moves away from the speed
+	 * the reader is actually seeing, not from a round number. Stepping below the
+	 * floor hands the pacing back to the measurement.
+	 */
+	stepPacerWpm(delta: number, from: number) {
+		const base = this.pacerWpm > 0 ? this.pacerWpm : from;
+		const next = Math.round(base / 10) * 10 + delta;
+		this.pacerWpm = next < 90 ? 0 : Math.min(800, next);
 	}
 
 	/** Step font size (percent) or line height by `delta`, clamped. */

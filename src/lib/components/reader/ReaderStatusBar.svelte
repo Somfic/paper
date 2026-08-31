@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { ReaderController } from "$lib/reader/reader.svelte";
+	import PagePacer from "./PagePacer.svelte";
 
 	let { reader }: { reader: ReaderController } = $props();
 </script>
 
 <div class="statusbar">
 	<span class="chap" title={reader.chapterLabel}>{reader.chapterLabel}</span>
+	<!-- Page-scoped furniture lives here; the whole-book bar is below us. -->
+	<PagePacer {reader} />
 	<span class="pages">
 		{reader.chapterPage} / {reader.chapterPages}
 		{#if reader.chapterLeft > 0}
