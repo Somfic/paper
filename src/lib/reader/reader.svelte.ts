@@ -389,6 +389,11 @@ export class ReaderController {
 	}
 
 	onKey = (e: KeyboardEvent) => {
+		// Space and the arrows turn the page — but only when the page is what
+		// they were aimed at. With a field focused (writing a note on a
+		// character, say) they belong to the field, and typing a space would
+		// otherwise turn the page out from under the cursor.
+		if (isTyping(e.target)) return;
 		if (e.key === "ArrowRight" || e.key === " ") {
 			e.preventDefault();
 			this.next();
@@ -423,4 +428,20 @@ export class ReaderController {
 		if (document.fullscreenElement) document.exitFullscreen?.();
 		else document.documentElement.requestFullscreen?.().catch(() => {});
 	};
+}
+
+/**
+ * Whether a keystroke was aimed at somewhere text goes. Duck-typed rather than
+ * `instanceof`: the reader's events can arrive from foliate's iframe, and an
+ * element from another document fails an `instanceof` against this one's.
+ */
+function isTyping(target: EventTarget | null): boolean {
+	const el = target as (HTMLElement & { tagName?: string }) | null;
+	const tag = el?.tagName?.toLowerCase();
+	return (
+		tag === "input" ||
+		tag === "textarea" ||
+		tag === "select" ||
+		el?.isContentEditable === true
+	);
 }

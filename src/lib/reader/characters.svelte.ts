@@ -17,6 +17,7 @@
 
 import { browser } from "$app/environment";
 import * as library from "$lib/library";
+import { notesKey } from "$lib/library";
 import { flattenToc } from "./foliate";
 import type { ReaderController } from "./reader.svelte";
 import { scoreQuote } from "./characters-extract";
@@ -51,6 +52,13 @@ const MAX_QUOTES = 3;
 
 /** Live mentions to pull a fresh quote from — the most recent ones. */
 const LIVE_QUOTE_WINDOW = 12;
+
+/**
+ * How long the pointer has to rest on a name before your note comes up. Long
+ * enough that reading a line does not set off a bubble under the pointer,
+ * short enough to feel like an answer rather than a delay.
+ */
+const HOVER_DELAY = 320;
 
 export type CastMember = {
 	entry: number;
@@ -118,6 +126,25 @@ function sentenceAt(text: string, offset: number): string {
 	return "";
 }
 
+/**
+ * Your notes on a book's cast, keyed by the character's name. The name rather
+ * than its position in the index: the index is rebuilt whenever the heuristics
+ * change, and a note has to survive that. Anything else in storage is ignored
+ * — a bad value costs the notes, never the reader.
+ */
+function loadNotes(bookId: number): Record<string, string> {
+	try {
+		const raw = JSON.parse(localStorage.getItem(notesKey(bookId)) ?? "{}");
+		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+		const out: Record<string, string> = {};
+		for (const [name, note] of Object.entries(raw))
+			if (typeof note === "string" && note.trim()) out[name] = note;
+		return out;
+	} catch {
+		return {};
+	}
+}
+
 /** Book ids whose scan is already running, so a remount can't start a second. */
 const scanning = new Set<number>();
 
@@ -128,6 +155,10 @@ export class CharacterController {
 	building = $state(false);
 	panelOpen = $state(false);
 	popover = $state<{ entry: number; rect: Rect } | null>(null);
+	/** Your own notes on the cast, by character name. */
+	notes = $state<Record<string, string>>({});
+	/** A name the pointer has rested on, and which you have written a note for. */
+	hover = $state<{ entry: number; rect: Rect } | null>(null);
 
 	// ── private refs ───────────────────────────────────────────────
 	#reader: ReaderController | null = null;
@@ -138,8 +169,9 @@ export class CharacterController {
 	#cut = 0;
 	#applied = new Set<string>();
 	#appliedIndex = -1;
-	#popoverRoot: HTMLElement | null = null;
-	#panelRoot: HTMLElement | null = null;
+	#bookId = 0;
+	#hoverHit = -1;
+	#hoverTimer = 0;
 	// Ranges and the reading position aren't reactive values, so a counter
 	// stands in for them: bumped on every relocate and every section match.
 	#tick = $state(0);
@@ -261,13 +293,12 @@ export class CharacterController {
 	/** Watch `reader` while it has `bookId` open. Returns a teardown. */
 	attach(reader: ReaderController, bookId: number): () => void {
 		this.#reader = reader;
+		this.#bookId = bookId;
 		this.#destroyed = false;
+		this.notes = loadNotes(bookId);
 		const offSection = reader.onSection((doc, index) => this.#matched(doc, index));
 		const view = reader.view;
 		view?.addEventListener("relocate", this.#onRelocate);
-		window.addEventListener("pointerdown", this.#onPointerDown, true);
-		window.addEventListener("keydown", this.#onKey, true);
-
 		// A section may already be on screen: `load` fired while the book was
 		// still opening, before anything could subscribe.
 		const current = view?.renderer?.getContents?.()?.[0];
@@ -279,27 +310,39 @@ export class CharacterController {
 			this.#destroyed = true;
 			offSection();
 			view?.removeEventListener("relocate", this.#onRelocate);
-			window.removeEventListener("pointerdown", this.#onPointerDown, true);
-			window.removeEventListener("keydown", this.#onKey, true);
 			this.#detachSection();
 			this.#reader = null;
 			this.index = null;
 			this.#matcher = null;
 			this.popover = null;
 			this.panelOpen = false;
+			this.notes = {};
 			this.#section = -1;
 		};
 	}
 
-	/** The popover's own element, so a click inside it doesn't close it. */
-	registerPopover(el: HTMLElement | null) {
-		this.#popoverRoot = el;
-	}
+	// ── your own notes ─────────────────────────────────────────────
 
-	/** The header button *and* its panel, for the same reason. */
-	registerPanel(el: HTMLElement | null) {
-		this.#panelRoot = el;
-	}
+	/** What you wrote about this character, if anything. */
+	note = (name: string): string => this.notes[name] ?? "";
+
+	/**
+	 * Write a note. An empty one is removed rather than stored blank, so
+	 * "has a note" stays a question with one answer — it decides whether the
+	 * name shows a mark, and whether resting on it says anything.
+	 */
+	setNote = (name: string, text: string) => {
+		const note = text.trim();
+		const next = { ...this.notes };
+		if (note) next[name] = note;
+		else delete next[name];
+		this.notes = next;
+		try {
+			localStorage.setItem(notesKey(this.#bookId), JSON.stringify(next));
+		} catch {
+			// A full or blocked store loses the note, not the reader's place.
+		}
+	};
 
 	// ── the index ──────────────────────────────────────────────────
 
@@ -423,6 +466,7 @@ export class CharacterController {
 		this.#cut = 0; // nothing is read until foliate says where we are
 		doc.addEventListener("click", this.#onClick);
 		doc.addEventListener("mousemove", this.#onMove, { passive: true });
+		doc.addEventListener("mouseleave", this.#onLeave);
 		this.#tick++;
 	}
 
@@ -431,6 +475,8 @@ export class CharacterController {
 		if (!live) return;
 		live.doc.removeEventListener("click", this.#onClick);
 		live.doc.removeEventListener("mousemove", this.#onMove);
+		live.doc.removeEventListener("mouseleave", this.#onLeave);
+		this.#hovered(-1);
 		this.#live = null;
 		this.#applied.clear();
 		this.#appliedIndex = -1;
@@ -438,6 +484,7 @@ export class CharacterController {
 
 	#onRelocate = (e: any) => {
 		this.popover = null;
+		this.#hovered(-1);
 		const view = this.#reader?.view;
 		const content = view?.renderer?.getContents?.()?.[0];
 		// The section can change without a `load` (foliate reuses a rendered
@@ -559,7 +606,11 @@ export class CharacterController {
 		const offset = flatOffset(live.flat, point.node, point.offset);
 		if (offset < 0) return;
 		const k = this.#hitAt(offset);
-		if (k < 0) return;
+		if (k < 0) {
+			// A click in the prose is the reader going back to reading.
+			this.popover = null;
+			return;
+		}
 		const hit = live.hits[k];
 		// Not met yet — the name in front of them is all they know, and this
 		// popover would be the first thing to say more than the book has.
@@ -567,6 +618,7 @@ export class CharacterController {
 		const range = this.#rangeAt(k);
 		if (!range) return;
 		this.panelOpen = false;
+		this.#hovered(-1);
 		this.popover = { entry: hit.entry, rect: rangeViewportRect(range) };
 	};
 
@@ -579,37 +631,56 @@ export class CharacterController {
 		const { clientX, clientY } = e;
 		this.#moveRaf = requestAnimationFrame(() => {
 			this.#moveRaf = 0;
+			// Dragging out a quote is not hovering. Stay out of the way of it.
+			if (!live.doc.getSelection()?.isCollapsed) {
+				this.#hovered(-1);
+				return;
+			}
 			const point = caretPoint(live.doc, clientX, clientY);
 			const offset = point ? flatOffset(live.flat, point.node, point.offset) : -1;
 			const k = offset < 0 ? -1 : this.#hitAt(offset);
 			const met =
 				k >= 0 && (this.reveal[live.hits[k].entry]?.count ?? 0) > 0;
 			live.doc.body.style.cursor = met ? "pointer" : "";
+			this.#hovered(met ? k : -1);
 		});
 	};
 
+	#onLeave = () => this.#hovered(-1);
+
+	/**
+	 * Rest the pointer on someone you have written a note about and the note
+	 * comes up. Only a note: everything the book itself says is a click away in
+	 * the card, and putting that under the pointer would mean a paragraph
+	 * jumping out at you every time you read across a name.
+	 */
+	#hovered(k: number) {
+		if (k === this.#hoverHit) return;
+		this.#hoverHit = k;
+		clearTimeout(this.#hoverTimer);
+		this.hover = null;
+
+		const live = this.#live;
+		if (k < 0 || !live || this.popover) return;
+		const entry = live.hits[k].entry;
+		if (!this.note(this.index?.entries[entry]?.name ?? "")) return;
+		const range = this.#rangeAt(k);
+		if (!range) return;
+		const rect = rangeViewportRect(range);
+		this.#hoverTimer = window.setTimeout(() => {
+			this.hover = { entry, rect };
+		}, HOVER_DELAY);
+	}
+
 	// ── dismissal ──────────────────────────────────────────────────
 
+	// Clicking away and pressing Escape are glow's to handle: both layers are
+	// its popovers now, and it already peels them one at a time. The one case
+	// it cannot see is a click inside the book itself, which happens in
+	// foliate's iframe and never reaches this document — `#onClick` closes the
+	// card for that one.
 	dismiss = () => {
 		this.popover = null;
-	};
-
-	#onPointerDown = (e: Event) => {
-		const node = e.target;
-		if (!(node instanceof Node)) return;
-		if (this.popover && !this.#popoverRoot?.contains(node)) this.popover = null;
-		if (this.panelOpen && !this.#panelRoot?.contains(node)) this.panelOpen = false;
-	};
-
-	#onKey = (e: KeyboardEvent) => {
-		if (e.key !== "Escape") return;
-		if (this.popover) {
-			e.stopPropagation();
-			this.popover = null;
-		} else if (this.panelOpen) {
-			e.stopPropagation();
-			this.panelOpen = false;
-		}
 	};
 }
 
