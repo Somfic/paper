@@ -1,7 +1,7 @@
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 // bisect
-const fit = (el, a = 1, b = 50) => {
+const fit = (el, a = 1, b = 44) => {
     const c = Math.floor(a + (b - a) / 2)
     el.style.fontSize = `${c}px`
     if (b - a === 1) return
@@ -10,10 +10,29 @@ const fit = (el, a = 1, b = 50) => {
     else fit(el, c, b)
 }
 
+// laid out at 540 and drawn at 2× → a 1080 × 1080 card
 const width = 540
 const height = 540
 const pixelRatio = 2
 
+// The card is rendered by an <img> loading a serialised SVG, which has no
+// access to the page's fonts or the network — only families installed on the
+// reader's machine resolve, so both stacks end in a generic.
+const SERIF = "'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif"
+const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+
+// paper's own look: the reader theme's tint and ink, defaulting to sepia
+const FALLBACK = {
+    bg: '#f4ecd8',
+    fg: '#5b4636',
+    dim: '#8a7a63',
+    vignette: 'rgba(0,0,0,0.07)',
+    grain: 0.17,
+}
+
+// Structure is styled inline rather than from the <style> below: only the
+// subtree of `main` is copied into the SVG, so anything the imported nodes
+// need must travel with them.
 const html = `<style>
 :host {
     position: absolute;
@@ -23,9 +42,10 @@ const html = `<style>
     visibility: hidden;
 }
 </style>
-<main style="width: ${width}px; height: ${height}px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; text-align: center; background: #fff; color: #000; font: 16pt serif">
+<main style="box-sizing: border-box; width: ${width}px; height: ${height}px; padding: 52px 56px 44px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; text-align: center; background: var(--bg); color: var(--fg); font-family: ${SERIF}; box-shadow: inset 0 0 130px var(--vignette)">
     <style>
-    .ellipsis {
+    style { display: none }
+    .clamp {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
@@ -33,19 +53,13 @@ const html = `<style>
         text-overflow: ellipsis;
     }
     </style>
-    <div style="font-size: min(4em, 8rem); line-height: 1; margin-bottom: -.5em">“</div>
-    <div id="text" style="margin: 1em; text-wrap: balance"></div>
-    <div style="margin: 0 1em">
-        <div style="font-size: min(.8em, 1.25rem); font-family: sans-serif">
-            <div style="display: block; font-weight: bold; margin-bottom: .25em">
-                <span id="author" class="ellipsis"></span>
-            </div>
-            <div style="display: block; text-wrap: balance">
-                <cite id="title" class="ellipsis"></cite>
-            </div>
-        </div>
+    <div style="flex: 0 0 auto; font-size: min(3em, 104px); line-height: .62; color: var(--dim); opacity: .5">&#8220;</div>
+    <div id="text" style="flex: 0 0 auto; margin-top: .5em; line-height: 1.42; text-wrap: balance"></div>
+    <div style="flex: 0 0 auto; width: 54px; height: 1px; margin: 30px auto 0; background: currentColor; opacity: .25"></div>
+    <div style="flex: 0 0 auto; margin-top: 18px; font-family: ${SANS}">
+        <cite id="title" class="clamp" style="display: block; font-size: 14px; font-style: normal; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; text-wrap: balance"></cite>
+        <div id="author" class="clamp" style="margin-top: 7px; font-size: 12px; letter-spacing: .02em; color: var(--dim)"></div>
     </div>
-    <div style="height: 1em">&nbsp;</div>
 </main>`
 
 // TODO: lang, vertical writing
@@ -55,12 +69,18 @@ customElements.define('foliate-quoteimage', class extends HTMLElement {
         super()
         this.#root.innerHTML = html
     }
-    async getBlob({ title, author, text }) {
+    async getBlob({ title, author, text, theme }) {
+        const t = { ...FALLBACK, ...theme }
+        const main = this.#root.querySelector('main')
+        main.style.setProperty('--bg', t.bg)
+        main.style.setProperty('--fg', t.fg)
+        main.style.setProperty('--dim', t.dim)
+        main.style.setProperty('--vignette', t.vignette)
         this.#root.querySelector('#title').textContent = title
         this.#root.querySelector('#author').textContent = author
         this.#root.querySelector('#text').innerText = text
 
-        fit(this.#root.querySelector('main'))
+        fit(main)
 
         const img = document.createElement('img')
         return new Promise(resolve => {
@@ -72,15 +92,39 @@ customElements.define('foliate-quoteimage', class extends HTMLElement {
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
                 canvas.toBlob(resolve)
             }
+            img.onerror = () => resolve(null)
             const doc = document.implementation.createDocument(SVG_NS, 'svg')
             doc.documentElement.setAttribute('viewBox', `0 0 ${width} ${height}`)
+            doc.documentElement.setAttribute('width', width)
+            doc.documentElement.setAttribute('height', height)
             const obj = doc.createElementNS(SVG_NS, 'foreignObject')
             obj.setAttribute('width', width)
             obj.setAttribute('height', height)
-            obj.append(doc.importNode(this.#root.querySelector('main'), true))
+            obj.append(doc.importNode(main, true))
             doc.documentElement.append(obj)
+            // the reader's paper grain (same feTurbulence recipe as
+            // ReaderStage), laid over the finished card
+            const filter = doc.createElementNS(SVG_NS, 'filter')
+            filter.setAttribute('id', 'paper-grain')
+            const turbulence = doc.createElementNS(SVG_NS, 'feTurbulence')
+            turbulence.setAttribute('type', 'fractalNoise')
+            turbulence.setAttribute('baseFrequency', '1.1')
+            turbulence.setAttribute('numOctaves', '1')
+            turbulence.setAttribute('stitchTiles', 'stitch')
+            const desaturate = doc.createElementNS(SVG_NS, 'feColorMatrix')
+            desaturate.setAttribute('type', 'saturate')
+            desaturate.setAttribute('values', '0')
+            filter.append(turbulence, desaturate)
+            const grain = doc.createElementNS(SVG_NS, 'rect')
+            grain.setAttribute('width', width)
+            grain.setAttribute('height', height)
+            grain.setAttribute('filter', 'url(#paper-grain)')
+            grain.setAttribute('opacity', t.grain)
+            doc.documentElement.append(filter, grain)
+            // encoded, not raw: theme colours are `#rrggbb`, and a bare `#`
+            // in a data URI starts the fragment and truncates the document
             img.src = 'data:image/svg+xml;charset=utf-8,'
-                + new XMLSerializer().serializeToString(doc)
+                + encodeURIComponent(new XMLSerializer().serializeToString(doc))
         })
     }
 })
