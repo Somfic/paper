@@ -11,9 +11,9 @@
 	// Selections happen inside each section's iframe; the controller hands us
 	// every document as it renders.
 	$effect(() => {
-		reader.onSectionLoad = (doc) => quotes.observe(doc);
+		const off = reader.onSection((doc) => quotes.observe(doc));
 		return () => {
-			reader.onSectionLoad = null;
+			off();
 			quotes.dispose();
 		};
 	});
@@ -68,8 +68,10 @@
 		<div class="panel" role="dialog" aria-label="Quote card">
 			{#if quotes.tooLong}
 				<p class="message">
-					That selection is {quotes.length.toLocaleString()} characters — far more
-					than a card can hold. Pick a passage under {REFUSE_CHARS.toLocaleString()}.
+					That selection is {quotes.length.toLocaleString("en-US")} characters — far
+					more than a card can hold. Pick a passage under {REFUSE_CHARS.toLocaleString(
+						"en-US",
+					)}.
 				</p>
 			{:else if quotes.busy}
 				<p class="message">Drawing the card…</p>

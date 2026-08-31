@@ -57,8 +57,8 @@ const html = `<style>
     <div id="text" style="flex: 0 0 auto; margin-top: .5em; line-height: 1.42; text-wrap: balance"></div>
     <div style="flex: 0 0 auto; width: 54px; height: 1px; margin: 30px auto 0; background: currentColor; opacity: .25"></div>
     <div style="flex: 0 0 auto; margin-top: 18px; font-family: ${SANS}">
-        <div id="author" class="clamp" style="font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase"></div>
-        <cite id="title" class="clamp" style="display: block; margin-top: 6px; font-size: 13px; font-style: italic; color: var(--dim); text-wrap: balance"></cite>
+        <cite id="title" class="clamp" style="display: block; font-size: 14px; font-style: normal; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; text-wrap: balance"></cite>
+        <div id="author" class="clamp" style="margin-top: 7px; font-size: 12px; letter-spacing: .02em; color: var(--dim)"></div>
     </div>
 </main>`
 
