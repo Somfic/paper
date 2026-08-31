@@ -25,6 +25,8 @@ export type SectionText = {
 export type ExtractOptions = {
 	/** surface forms to never treat as characters — the author's own name */
 	exclude?: string[];
+	/** the book's own `dc:language`, if it declares one */
+	language?: string;
 };
 
 // ── vocabularies ───────────────────────────────────────────────
@@ -33,7 +35,11 @@ export type ExtractOptions = {
 // words from the book's own scaffolding, and the interjections that dialogue is
 // made of. A name that collides with one of these is lost, which is why the
 // list holds only words that are overwhelmingly not names in English prose.
-const STOP = new Set<string>(
+/** A whitespace-separated vocabulary, written as prose in the source. */
+const words = (source: string) =>
+	new Set<string>(source.split(/\s+/).filter(Boolean));
+
+const STOP = words(
 	`a about above after again against all almost along already also although
 	always am among an and another any anyone anything are around as at away back
 	be because been before behind being below beneath beside besides best better
@@ -65,15 +71,124 @@ const STOP = new Set<string>(
 	okay oops ow please sorry thanks thank true ugh uh um well what why yeah yes
 	you-know
 	majesty eminence highness excellency grace worship ladyship lordship
-	mmm hmmm ahh ohh aah`
+	mmm hmmm ahh ohh aah`,
+);
+
+// Everything above is English. A Dutch novel's function words are a different
+// set entirely, and without them the tracker offers "Ja", "Waarom", "Nee" and
+// "Papa" as members of the cast — which is what a reader of a Dutch book
+// actually got. The English list stays in force whatever the language: it
+// costs a Dutch book nothing, and an epub's own scaffolding is in English more
+// often than the book is.
+//
+// A few of these are also Dutch given names ("Wil", "Mei", "Dan"). They are in
+// the list anyway: a book that uses the word constantly in lower case already
+// loses the name to the lower-case rule below, so the entry changes nothing.
+const STOP_BY_LANGUAGE: Record<string, Set<string>> = {
+	nl: words(`
+		de het een en van dat die dit deze der den des te in op aan met voor door
+		over onder tussen naar uit bij om als dan toen nu nog al ook maar want dus
+		of niet geen wel zo zeer heel erg meer meest minder weinig veel alle alles
+		allemaal iets niets iemand niemand elk elke ieder iedere iedereen zelf
+		zelfde hetzelfde dezelfde ander andere anders beide beiden samen
+		ik jij je jou u hij zij ze wij we jullie mij me hem haar hen hun ons onze
+		mijn jouw uw zich zichzelf elkaar men
+		ben bent is zijn was waren geweest word wordt worden werd werden geworden
+		heb hebt heeft hebben had hadden gehad kan kun kunt kunnen kon konden
+		zal zult zullen zou zouden mag mag magen mogen mocht mochten moet moeten
+		moest moesten wil wilt willen wilde wilden wou doe doet doen deed deden
+		gedaan ga gaat gaan ging gingen gegaan kom komt komen kwam kwamen gekomen
+		zei zegt zeggen zeiden gezegd vroeg vraagt vragen keek kijkt kijken staat
+		staan stond stonden zit zitten zat zaten liep lopen dacht denken wist
+		weten werd blijft blijven bleef
+		wat wie waar wanneer waarom hoe welke welk hoeveel waarheen waarvan
+		ja nee jawel nou goed oke okee hoor ach och oh hm hmm haha zeg kijk
+		luister alsjeblieft alstublieft dank dankje bedankt sorry helaas
+		natuurlijk misschien echt eigenlijk gewoon even nooit altijd soms vaak
+		weer opnieuw eerst laatst later eerder straks meteen ineens plotseling
+		vandaag gisteren morgen avond ochtend nacht middag jaar week maand uur
+		papa mama pap mam vader moeder ouders opa oma pa ma oom tante broer zus
+		zusje broertje jongen meisje man vrouw kind kinderen mens mensen meneer
+		mevrouw mijnheer juffrouw
+		hoofdstuk deel proloog epiloog inhoud voorwoord nawoord bijlage register
+		titel auteur uitgeverij uitgave druk bladzijde einde
+		maandag dinsdag woensdag donderdag vrijdag zaterdag zondag januari
+		februari maart april mei juni juli augustus september oktober november
+		december
+		god heer here hemel hel duivel jezus christus lieve verdomme
+	`),
+};
+
+/**
+ * Function words that are common in one language and rare in the others. This
+ * only ever *adds* a stopword list, so a wrong guess costs a name and a missed
+ * guess costs nothing — hence the generous threshold in `sniff`.
+ */
+const MARKERS: Record<string, string[]> = {
+	// No word here may be common in the other language: "was" is both English
+	// and Dutch and so is not a marker for either, and "in", "is" and "of" are
+	// out for the same reason.
+	en: `the and that with have this from they their which would about been what
+		there could should her his him she said`
 		.split(/\s+/)
 		.filter(Boolean),
-);
+	nl: `de het een van dat die niet zijn hij ze naar maar ook nog toen werd
+		deze zich hebben worden`
+		.split(/\s+/)
+		.filter(Boolean),
+};
+
+/** Languages that write the genitive as a bare s: "Michels jas" is Michel's. */
+const GENITIVE_S = new Set(["nl", "af", "de", "da", "sv", "nb", "nn", "no"]);
+
+/** Enough of the book to tell what it is written in, without reading all of it. */
+const SNIFF_CHARS = 200_000;
+/** Share of a sample's words that have to be a language's markers to count. */
+const MARKER_SHARE = 0.05;
+
+/** Every language the book reads as, by the markers its words match. */
+function sniff(sections: SectionText[]): string[] {
+	let sample = "";
+	for (const section of sections) {
+		sample += section.text.slice(0, SNIFF_CHARS - sample.length);
+		if (sample.length >= SNIFF_CHARS) break;
+	}
+	const counts = new Map<string, number>();
+	let total = 0;
+	WORD.lastIndex = 0;
+	for (let m = WORD.exec(sample); m; m = WORD.exec(sample)) {
+		total++;
+		bump(counts, norm(m[0]));
+	}
+	if (total < 200) return [];
+	const out: string[] = [];
+	for (const [lang, markers] of Object.entries(MARKERS)) {
+		let hits = 0;
+		for (const marker of markers) hits += counts.get(marker) ?? 0;
+		if (hits / total >= MARKER_SHARE) out.push(lang);
+	}
+	return out;
+}
+
+/**
+ * The languages a book is in: what it reads as, plus what it says it is. The
+ * declaration is dropped when the prose plainly contradicts it — epubs are
+ * mislabelled often enough that the text is the better witness — and kept when
+ * there is nothing here to check it against, which is how a German book still
+ * gets its genitives undone without a German marker list.
+ */
+function languagesOf(sections: SectionText[], declared?: string): Set<string> {
+	const read = sniff(sections);
+	const langs = new Set(read);
+	const tag = (declared ?? "").toLowerCase().split(/[-_]/)[0];
+	if (tag && (!read.length || read.includes(tag))) langs.add(tag);
+	return langs;
+}
 
 // Honorifics and ranks. Stripped off the front of a chunk so that "Inquisitor
 // Glokta", "Glokta" and "Sand dan Glokta" collapse into one person, but kept as
 // the label the reader most likely remembers.
-const TITLES = new Set<string>(
+const TITLES = words(
 	`mr mrs ms miss master mistress madam madame monsieur dr doctor prof
 	professor sir dame lord lady king queen prince princess duke duchess count
 	countess baron baroness emperor empress earl marquis viscount
@@ -83,9 +198,11 @@ const TITLES = new Set<string>(
 	brother sister father mother uncle aunt cousin grandfather grandmother
 	saint st chief president governor judge sheriff reverend rabbi imam pope
 	cardinal bishop abbot prior squire knight nurse officer detective agent
-	sergeant-major lord-marshal high`
-		.split(/\s+/)
-		.filter(Boolean),
+	sergeant-major lord-marshal high
+	meneer mevrouw mijnheer mevr dhr juffrouw juf dokter dominee pastoor
+	koning koningin prins prinses graaf gravin hertog hertogin ridder
+	kapitein luitenant kolonel sergeant generaal agent rechercheur meester
+	broeder zuster pater`,
 );
 
 // Lower-case words allowed *inside* a name. "the" is deliberately absent: it
@@ -138,6 +255,8 @@ type Occurrence = {
 	i: number;
 	o: number;
 	end: number;
+	/** offset of the chunk's final word — where a genitive s would be */
+	last: number;
 	/** the chunk opened its sentence, so the capital may mean nothing */
 	initial: boolean;
 	/** honorific that preceded it, if any */
@@ -186,14 +305,23 @@ type Pass1 = {
 	candidates: Map<string, Occurrence[]>;
 	/** how often each word appears in lower case anywhere in the book */
 	lower: Map<string, number>;
+	/** how often each word appears capitalised, and how it was first spelled */
+	caps: Map<string, number>;
+	spelling: Map<string, string>;
 	texts: Map<number, string>;
 	spans: Map<number, [number, number][]>;
 	words: Map<number, number>;
 };
 
-function pass1(sections: SectionText[], exclude: Set<string>): Pass1 {
+function pass1(
+	sections: SectionText[],
+	exclude: Set<string>,
+	stop: Set<string>,
+): Pass1 {
 	const candidates = new Map<string, Occurrence[]>();
 	const lower = new Map<string, number>();
+	const caps = new Map<string, number>();
+	const spelling = new Map<string, string>();
 	const texts = new Map<number, string>();
 	const spans = new Map<number, [number, number][]>();
 	const words = new Map<number, number>();
@@ -212,11 +340,15 @@ function pass1(sections: SectionText[], exclude: Set<string>): Pass1 {
 				(t) => !inHeading(t.from),
 			);
 			wordCount += toks.length;
-			for (const t of toks) if (!isCap(t.w)) bump(lower, norm(t.w));
+			for (const t of toks)
+				if (isCap(t.w)) {
+					bump(caps, norm(t.w));
+					if (!spelling.has(norm(t.w))) spelling.set(norm(t.w), t.w);
+				} else bump(lower, norm(t.w));
 
 			let k = 0;
 			while (k < toks.length) {
-				if (!nameable(toks[k].w)) {
+				if (!nameable(toks[k].w, stop)) {
 					k++;
 					continue;
 				}
@@ -226,7 +358,7 @@ function pass1(sections: SectionText[], exclude: Set<string>): Pass1 {
 				let j = k + 1;
 				while (j < toks.length && end - k + 1 < MAX_CHUNK_WORDS) {
 					const u = toks[j];
-					if (nameable(u.w) && glued(text, toks[end], u)) {
+					if (nameable(u.w, stop) && glued(text, toks[end], u)) {
 						end = j;
 						j++;
 						continue;
@@ -235,7 +367,7 @@ function pass1(sections: SectionText[], exclude: Set<string>): Pass1 {
 					if (
 						CONNECTORS.has(norm(u.w)) &&
 						next &&
-						nameable(next.w) &&
+						nameable(next.w, stop) &&
 						glued(text, toks[end], u) &&
 						glued(text, u, next)
 					) {
@@ -278,6 +410,7 @@ function pass1(sections: SectionText[], exclude: Set<string>): Pass1 {
 						i: index,
 						o: chunk[p].from,
 						end: chunk[chunk.length - 1].to,
+						last: chunk[chunk.length - 1].from,
 						initial: k === 0,
 						title,
 						loc: !!before && LOCATIVE.has(norm(before)),
@@ -298,11 +431,11 @@ function pass1(sections: SectionText[], exclude: Set<string>): Pass1 {
 		spans.set(index, sentenceSpans);
 		words.set(index, wordCount);
 	}
-	return { candidates, lower, texts, spans, words };
+	return { candidates, lower, caps, spelling, texts, spans, words };
 }
 
-const nameable = (w: string) =>
-	w.length >= 2 && isCap(w) && !isAllCaps(w) && !STOP.has(norm(w));
+const nameable = (w: string, stop: Set<string>) =>
+	w.length >= 2 && isCap(w) && !isAllCaps(w) && !stop.has(norm(w));
 
 const excluded = (name: string, exclude: Set<string>) =>
 	name.split(" ").every((w) => exclude.has(norm(w)));
@@ -343,6 +476,84 @@ function isCharacter(
 	// Reads like somewhere you go rather than someone you meet.
 	if (loc >= 0.3 && person < 0.1) return false;
 	return true;
+}
+
+// ── the genitive s ─────────────────────────────────────────────
+
+/**
+ * Dutch — and German, and the Scandinavian languages — writes the genitive by
+ * sticking an s on the end with no apostrophe: "Michels jas" is Michel's coat.
+ * Left alone the scan reads "Michels" as a second person, and worse, glues it
+ * to whoever happens to stand next to it: "Anna Michels oude rapport" becomes a
+ * character called "Anna Michels". Both come from the same mistake, so both are
+ * fixed in one place — a capitalised word that is some other name plus an s is
+ * that name in the genitive, and it always begins a name of its own.
+ *
+ * English needs none of this (its genitive carries an apostrophe, which the
+ * tokenizer already clips) and must not have it: "Roberts" and "Robert" are two
+ * different people often enough to matter. Hence the language gate.
+ *
+ * Returns, per canonical name, the genitive forms that were folded into it, so
+ * the reader still gets "Michels" underlined in the text.
+ */
+function undoGenitives(p1: Pass1): Map<string, Set<string>> {
+	const extra = new Map<string, Set<string>>();
+
+	/** The name this word is the genitive of, spelled as the book spells it. */
+	const stemOf = (word: string): string | null => {
+		const n = norm(word);
+		// "Hans'" and "Anna's" lose their suffix in the tokenizer already; this
+		// is only the bare-s form, and only when the stem is a name in its own
+		// right that the book uses at least as often.
+		if (n.length < 4 || !n.endsWith("s")) return null;
+		const stem = n.slice(0, -1);
+		const count = p1.caps.get(stem) ?? 0;
+		if (count < 2 || count * 2 < (p1.caps.get(n) ?? 0)) return null;
+		return p1.spelling.get(stem) ?? null;
+	};
+
+	const add = (name: string, occ: Occurrence) => {
+		const list = p1.candidates.get(name);
+		if (list) list.push(occ);
+		else p1.candidates.set(name, [occ]);
+	};
+
+	for (const [name, occs] of [...p1.candidates]) {
+		const parts = name.split(" ");
+		const stem = stemOf(parts[parts.length - 1]);
+		if (!stem) continue;
+		p1.candidates.delete(name);
+
+		const head = parts.slice(0, -1).join(" ");
+		for (const occ of occs) {
+			// A possessive is about as strong a sign of a person as prose gives.
+			add(stem, {
+				...occ,
+				title: undefined,
+				o: head ? occ.last : occ.o,
+				end: occ.end - 1,
+				last: head ? occ.last : occ.o,
+				initial: head ? false : occ.initial,
+				loc: false,
+				article: false,
+				person: true,
+			});
+			// Whatever stood in front of the genitive was a name of its own that
+			// the chunker swallowed; give it its occurrence back.
+			if (head)
+				add(head, {
+					...occ,
+					end: occ.last,
+					last: occ.o,
+					person: false,
+				});
+		}
+
+		const forms = extra.get(stem) ?? new Set<string>();
+		forms.add(parts[parts.length - 1]);
+		extra.set(stem, forms);
+	}
+	return extra;
 }
 
 // ── merging surface forms into one person ──────────────────────
@@ -478,7 +689,15 @@ export function extract(
 	options: ExtractOptions = {},
 ): CharacterEntry[] {
 	const exclude = new Set((options.exclude ?? []).map(norm));
-	const p1 = pass1(sections, exclude);
+	const languages = languagesOf(sections, options.language);
+	const stop = new Set(STOP);
+	for (const lang of languages)
+		for (const word of STOP_BY_LANGUAGE[lang] ?? []) stop.add(word);
+
+	const p1 = pass1(sections, exclude, stop);
+	const genitives = [...languages].some((l) => GENITIVE_S.has(l))
+		? undoGenitives(p1)
+		: new Map<string, Set<string>>();
 
 	const tiny = new Set<number>();
 	for (const [index, count] of p1.words)
@@ -527,7 +746,15 @@ export function extract(
 		if (occ.length < (hasFull || titled ? 2 : 3)) continue;
 
 		const { name, aliases } = displayName(counts, titles, occ.length);
-		drafts.push({ name, aliases, occ });
+		// The genitive forms were never candidates of their own, but the reader
+		// still meets "Michels" on the page and should see it underlined.
+		for (const form of forms)
+			for (const genitive of genitives.get(form) ?? []) aliases.push(genitive);
+		drafts.push({
+			name,
+			aliases: [...new Set(aliases)].sort((a, b) => b.length - a.length),
+			occ,
+		});
 	}
 
 	drafts.sort((a, b) => b.occ.length - a.occ.length);

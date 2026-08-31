@@ -390,6 +390,7 @@ export class CharacterController {
 				kind: "build",
 				labels,
 				exclude: author.split(/[\s,]+/).filter(Boolean),
+				language: languageTag(book?.metadata?.language),
 			} satisfies ScanRequest);
 
 			const index = await done;
@@ -610,6 +611,12 @@ export class CharacterController {
 			this.panelOpen = false;
 		}
 	};
+}
+
+/** `dc:language`, which an epub may give as a string or a list of them. */
+function languageTag(value: unknown): string | undefined {
+	const first = Array.isArray(value) ? value[0] : value;
+	return typeof first === "string" && first ? first : undefined;
 }
 
 /**

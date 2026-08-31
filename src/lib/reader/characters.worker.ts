@@ -11,7 +11,13 @@ import { extract, type SectionText } from "./characters-extract";
 
 export type ScanRequest =
 	| { kind: "section"; section: SectionText }
-	| { kind: "build"; labels: (string | undefined)[]; exclude: string[] };
+	| {
+			kind: "build";
+			labels: (string | undefined)[];
+			exclude: string[];
+			/** the book's declared language, so the scan knows which words to ignore */
+			language?: string;
+	  };
 
 export type ScanResponse =
 	| { kind: "done"; index: CharacterIndex }
@@ -28,7 +34,10 @@ ctx.onmessage = (event: MessageEvent<ScanRequest>) => {
 		return;
 	}
 	try {
-		const entries = extract(sections, { exclude: message.exclude });
+		const entries = extract(sections, {
+			exclude: message.exclude,
+			language: message.language,
+		});
 		const index: CharacterIndex = {
 			version: INDEX_VERSION,
 			built_at: new Date().toISOString(),
