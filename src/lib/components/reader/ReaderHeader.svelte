@@ -3,6 +3,7 @@
 	import { Button } from "glow";
 	import type { ReaderController } from "$lib/reader/reader.svelte";
 	import type { ReaderSettings } from "$lib/reader/settings.svelte";
+	import CastMenu from "./CastMenu.svelte";
 	import ChapterMenu from "./ChapterMenu.svelte";
 	import SettingsMenu from "./SettingsMenu.svelte";
 
@@ -29,6 +30,7 @@
 		icon={reader.isFullscreen ? "Minimize" : "Maximize"}
 		onclick={reader.toggleFullscreen}
 	/>
+	<CastMenu {reader} />
 	{#if reader.toc.length > 0}
 		<ChapterMenu items={reader.chapterItems} />
 	{/if}
