@@ -2,6 +2,11 @@
 	import { Button, PopoverMenu, type PopoverMenuEntry } from "glow";
 	import type { ReaderSettings } from "$lib/reader/settings.svelte";
 	import type { ThemeName } from "$lib/reader/themes";
+	import {
+		DEFAULT_WPM,
+		ENOUGH_SAMPLES,
+		readingSpeed,
+	} from "$lib/reader/pacer.svelte";
 
 	let { settings }: { settings: ReaderSettings } = $props();
 
@@ -32,6 +37,17 @@
 			checked: settings.shading,
 			onChange: (v: boolean) => (settings.shading = v),
 		},
+		{
+			kind: "toggle",
+			label: "Page pacer",
+			description: "A hairline that drains over the page. Paged reading only.",
+			checked: settings.pacer,
+			onChange: (v: boolean) => (settings.pacer = v),
+		},
+		// The speed it paces to is only worth showing once it is pacing.
+		...(settings.pacer
+			? [{ kind: "custom", render: pace } as PopoverMenuEntry]
+			: []),
 		{ kind: "header", label: "Layout" },
 		{
 			kind: "radio",
@@ -53,6 +69,21 @@
 			onChange: (v: string) => (settings.singleColumn = v === "single"),
 		},
 	]);
+
+	// What the pacer is currently pacing to, and whether that is the reader's
+	// number or ours.
+	const paceWpm = $derived(
+		settings.pacerWpm > 0
+			? settings.pacerWpm
+			: (readingSpeed.measured ?? DEFAULT_WPM),
+	);
+	const paceNote = $derived(
+		settings.pacerWpm > 0
+			? "Your target — step below 90 to measure again."
+			: readingSpeed.measured
+				? `Measured over your last ${readingSpeed.samples.length} page turns.`
+				: `Measuring — ${readingSpeed.samples.length} of ${ENOUGH_SAMPLES} page turns.`,
+	);
 </script>
 
 {#snippet typography()}
@@ -82,6 +113,28 @@
 				<button
 					onclick={() => settings.adjust("lineHeight", 0.1)}
 					aria-label="Looser lines">+</button
+				>
+			</div>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet pace()}
+	<div class="typo">
+		<div class="typo-row">
+			<span class="pace-label">
+				Reading speed
+				<small>{paceNote}</small>
+			</span>
+			<div class="stepper">
+				<button
+					onclick={() => settings.stepPacerWpm(-20, paceWpm)}
+					aria-label="Slower pace">−</button
+				>
+				<span class="v">{paceWpm} wpm</span>
+				<button
+					onclick={() => settings.stepPacerWpm(20, paceWpm)}
+					aria-label="Faster pace">+</button
 				>
 			</div>
 		</div>
@@ -122,6 +175,15 @@
 		min-width: 1.8rem;
 		height: 1.8rem;
 		cursor: pointer;
+	}
+	/* the measured-speed note rides under its label, not on its own row */
+	.pace-label {
+		display: flex;
+		flex-direction: column;
+	}
+	.pace-label small {
+		font-size: 0.72rem;
+		opacity: 0.6;
 	}
 	.stepper .v {
 		min-width: 2.8rem;

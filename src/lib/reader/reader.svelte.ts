@@ -35,6 +35,10 @@ export class ReaderController {
 	currentHref = $state("");
 	chapterPageRaw = $state(0); // foliate's raw page index (0 = leading pad)
 	chapterPagesRaw = $state(0); // includes 1 leading + 1 trailing pad page
+	// The visible page's Range, as foliate hands it to us — bisected to the
+	// character where visibility changes. For features that need the page's
+	// *content* and not just its index; it dies with its section's document.
+	visibleRange = $state<Range | null>(null);
 	ready = $state(false);
 	isFullscreen = $state(false);
 
@@ -198,6 +202,7 @@ export class ReaderController {
 					// content pages are index 1..(pages-2); see calibration.
 					this.chapterPageRaw = view?.renderer?.page ?? 0;
 					this.chapterPagesRaw = view?.renderer?.pages ?? 0;
+					this.visibleRange = e.detail?.range ?? null;
 					if (this.#canPersist && e.detail?.cfi) {
 						try {
 							localStorage.setItem(posKey(bookId), e.detail.cfi);
