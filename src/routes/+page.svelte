@@ -4,7 +4,7 @@
 	import * as library from "$lib/library";
 	import type { Book } from "$lib/library";
 	import { backfill, needsIngest } from "$lib/library/ingest";
-	import BookCard from "$lib/components/shelf/BookCard.svelte";
+	import Bookshelf from "$lib/components/shelf/Bookshelf.svelte";
 
 	let books = $state<Book[]>([]);
 	let loading = $state(true);
@@ -118,11 +118,7 @@
 		{#if ingesting > 0}
 			<p class="muted status">reading {ingesting} book{ingesting === 1 ? "" : "s"}…</p>
 		{/if}
-		<div class="shelf">
-			{#each books as book (book.id)}
-				<BookCard {book} onDelete={remove} />
-			{/each}
-		</div>
+		<Bookshelf {books} onDelete={remove} />
 	{/if}
 </div>
 
@@ -164,10 +160,5 @@
 		flex-direction: column;
 		gap: 1rem;
 		align-items: center;
-	}
-	.shelf {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 1.5rem;
 	}
 </style>
