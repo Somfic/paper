@@ -32,7 +32,7 @@
 	/>
 	<CastMenu {reader} />
 	{#if reader.toc.length > 0}
-		<ChapterMenu items={reader.chapterItems} />
+		<ChapterMenu items={reader.chapterItems} folds={reader.folds} />
 	{/if}
 	<SettingsMenu {settings} />
 </header>

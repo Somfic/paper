@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ReaderController } from "$lib/reader/reader.svelte";
 	import type { ReaderSettings } from "$lib/reader/settings.svelte";
+	import DogEar from "./DogEar.svelte";
 
 	let {
 		reader,
@@ -28,6 +29,7 @@
 			></div>
 		{/if}
 		<div class="view" bind:this={container}>
+			<DogEar folds={reader.folds} />
 			{#if reader.showSpine}<div class="spine" aria-hidden="true"></div>{/if}
 			{#if settings.shading}
 				<svg
