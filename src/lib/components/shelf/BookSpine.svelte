@@ -88,7 +88,11 @@
 	>
 		<div class="spine">
 			<div class="type" style:font-size="{type.size}px">
-				<span class="title">{type.title}</span>
+				<div class="lines">
+					{#each type.lines as line}
+						<span class="title">{line}</span>
+					{/each}
+				</div>
 				{#if type.author}
 					<span class="author">{type.author}</span>
 				{/if}
@@ -142,9 +146,13 @@
 	}
 	.book:hover .volume,
 	.volume:focus-visible {
-		/* Pulled up an inch and hinged open on the spine, the way you'd tip a
-		   book out with a finger on its headband. */
-		transform: translateY(-10px) rotateY(-36deg) rotateX(2deg);
+		/* Drawn out of the shelf and turned, the way you look at a book you are
+		   deciding on. It comes towards the viewer first: turning it in place
+		   would swing the jacket across its neighbours, and the perspective on a
+		   face 80px nearer is what makes the cover big enough to actually read —
+		   at the -36deg it opened to before, the jacket sat 54deg off square and
+		   its own title was unreadable. */
+		transform: translateZ(80px) translateY(-16px) rotateY(-54deg) rotateX(2deg);
 	}
 	.volume:focus-visible {
 		outline: none;
@@ -220,13 +228,24 @@
 			0 0 3px var(--ink-shade),
 			0 1px 1px var(--ink-shade);
 	}
-	.type > span {
+	.type span {
 		/* The last defence if the measured fit was optimistic. */
 		min-width: 0;
 		min-height: 0;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	/* A two-line title stacks across the spine rather than down it. A spine is
+	   read by turning it upright anticlockwise, which brings its left edge to the
+	   top — so the first line has to sit on the left, which is what the block
+	   axis of vertical-rl gives a plain `column`. */
+	.lines {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		min-width: 0;
+		min-height: 0;
 	}
 	.title {
 		font-weight: 700;

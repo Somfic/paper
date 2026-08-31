@@ -379,7 +379,8 @@ export function shelfOrder(books: Book[], artOf: (book: Book) => SpineArt): Book
 // ── type on the spine ──────────────────────────────────────────
 
 export type SpineType = {
-	title: string;
+	/** The title as set: one line, or two when the spine is thick enough. */
+	lines: string[];
 	author: string;
 	mark: string;
 	size: number;
@@ -412,6 +413,10 @@ const SANS = "ui-sans-serif, system-ui, sans-serif";
 const TITLE_TRACK = 0.09; // em
 const AUTHOR_TRACK = 0.03;
 const AUTHOR_SCALE = 0.86;
+/** Line box of a run of vertical type, as a multiple of its size. */
+const LEAD = 1.18;
+/** Left over either side of the type across the spine's width. */
+const CROSS_PAD = 6;
 
 // One canvas for the whole shelf. Measuring a string costs microseconds and it
 // beats guessing at the cap width of whichever serif the browser actually has —
@@ -488,26 +493,90 @@ export function spineType(book: Book, width: number, height: number): SpineType 
 			for (const size of steps) {
 				if (byline && size < AUTHOR_FLOOR) continue;
 				if (titleRun(size) + authorRun(byline, size) <= roomFor(mark))
-					return { title, author: byline, mark, size };
+					return { lines: [title], author: byline, mark, size };
+			}
+
+	// One line at any size didn't fit. Before cutting words out of the title,
+	// spend the spine's *width* instead: a thick enough book carries the title
+	// over two lines, which is what a binder does with a long title.
+	for (const byline of bylines)
+		for (const mark of marks)
+			for (const size of steps) {
+				if (byline && size < AUTHOR_FLOOR) continue;
+				if (!twoLinesFit(width, size)) continue;
+				const split = balance(title, size, roomFor(mark) - authorRun(byline, size));
+				if (split) return { lines: split, author: byline, mark, size };
 			}
 
 	// Nothing fits: keep the imprint (it costs almost nothing) and cut the title.
 	const mark = marks[0];
 	const room = roomFor(mark);
 	const size = steps[steps.length - 1];
+	// Two lines are still two chances to say more of the title before the cut.
+	const room2 = twoLinesFit(width, size) ? room : 0;
+	if (room2) {
+		const head = trimTo(title, size, room2);
+		const rest = title.slice(head.length).trim();
+		if (rest) return { lines: [head, ellipsise(rest, size, room2)], author: "", mark, size };
+	}
+	return { lines: [ellipsise(title, size, room)], author: "", mark, size };
+}
+
+/** Whether two runs of vertical type stand side by side across this spine. */
+function twoLinesFit(width: number, size: number): boolean {
+	return 2 * size * LEAD <= width - CROSS_PAD;
+}
+
+/** The longest run of whole words that fits, or the first word if none does. */
+function trimTo(text: string, size: number, room: number): string {
+	const words = text.split(" ");
+	let head = "";
+	for (const word of words) {
+		const next = head ? `${head} ${word}` : word;
+		if (head && advance(next, `700 ${size}px ${SERIF}`, size, TITLE_TRACK) > room) break;
+		head = next;
+	}
+	return head;
+}
+
+/** The run cut to length with an ellipsis, on a word boundary where there is one. */
+function ellipsise(text: string, size: number, room: number): string {
 	const font = `700 ${size}px ${SERIF}`;
+	if (advance(text, font, size, TITLE_TRACK) <= room) return text;
 	// Start from the length the full run's own advance implies, then walk in.
-	let fits = Math.max(4, Math.floor((title.length * room) / titleRun(size)));
-	while (fits > 4 && advance(title.slice(0, fits) + "…", font, size, TITLE_TRACK) > room)
+	let fits = Math.max(
+		4,
+		Math.floor((text.length * room) / advance(text, font, size, TITLE_TRACK)),
+	);
+	while (fits > 4 && advance(text.slice(0, fits) + "…", font, size, TITLE_TRACK) > room)
 		fits -= 1;
 	// Break at a word if there's one anywhere near the end of the budget, so a
 	// long subtitle is dropped rather than sliced mid-syllable.
-	const cut = title.slice(0, fits);
+	const cut = text.slice(0, fits);
 	const space = cut.lastIndexOf(" ");
-	return {
-		title: (space > fits * 0.6 ? cut.slice(0, space) : cut.trimEnd()) + "…",
-		author: "",
-		mark,
-		size,
-	};
+	return (space > fits * 0.6 ? cut.slice(0, space) : cut.trimEnd()) + "…";
+}
+
+/**
+ * The title over two lines, broken at the word that leaves the two runs most
+ * even — a spine reads as a block of type, and one long line beside a short one
+ * reads as a mistake. Null when even the best break still overruns.
+ */
+function balance(title: string, size: number, room: number): string[] | null {
+	const words = title.split(" ").filter(Boolean);
+	if (words.length < 2 || room <= 0) return null;
+	const font = `700 ${size}px ${SERIF}`;
+	const run = (t: string) => advance(t, font, size, TITLE_TRACK);
+	let best: string[] | null = null;
+	let evenness = Infinity;
+	for (let i = 1; i < words.length; i++) {
+		const pair = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
+		const [a, b] = pair.map(run);
+		if (Math.max(a, b) > room) continue;
+		if (Math.abs(a - b) < evenness) {
+			evenness = Math.abs(a - b);
+			best = pair;
+		}
+	}
+	return best;
 }
