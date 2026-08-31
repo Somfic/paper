@@ -3,11 +3,13 @@
 	import { Button } from "glow";
 	import * as library from "$lib/library";
 	import type { Book } from "$lib/library";
+	import { backfill, needsIngest } from "$lib/library/ingest";
 	import BookCard from "$lib/components/shelf/BookCard.svelte";
 
 	let books = $state<Book[]>([]);
 	let loading = $state(true);
 	let adding = $state(false);
+	let ingesting = $state(0);
 	let error = $state<string | null>(null);
 	let fileInput: HTMLInputElement;
 
@@ -19,9 +21,33 @@
 		} finally {
 			loading = false;
 		}
+		void runBackfill();
 	}
 
-	onMount(refresh);
+	onMount(() => {
+		void refresh();
+	});
+
+	/**
+	 * Parse anything not parsed yet — books added before the shelf knew how to
+	 * read them, and books added a moment ago. Never awaited by the render path:
+	 * cards show the filename immediately and fill in as each book lands.
+	 */
+	async function runBackfill() {
+		const pending = books.filter(needsIngest);
+		if (!pending.length) return;
+		ingesting = pending.length;
+		try {
+			await backfill(pending, (updated) => {
+				books = books.map((b) => (b.id === updated.id ? updated : b));
+				ingesting -= 1;
+			});
+		} catch (e: any) {
+			error = e?.message ?? String(e);
+		} finally {
+			ingesting = 0;
+		}
+	}
 
 	async function onFiles(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -31,15 +57,15 @@
 		error = null;
 		try {
 			for (const file of files) {
-				await library.add(file);
+				books = [await library.add(file), ...books];
 			}
-			await refresh();
 		} catch (e: any) {
 			error = e?.message ?? String(e);
 		} finally {
 			adding = false;
 			input.value = "";
 		}
+		void runBackfill();
 	}
 
 	async function remove(id: number) {
@@ -89,6 +115,9 @@
 			/>
 		</div>
 	{:else}
+		{#if ingesting > 0}
+			<p class="muted status">reading {ingesting} book{ingesting === 1 ? "" : "s"}…</p>
+		{/if}
 		<div class="shelf">
 			{#each books as book (book.id)}
 				<BookCard {book} onDelete={remove} />
@@ -122,6 +151,10 @@
 	}
 	.muted {
 		opacity: 0.6;
+	}
+	.status {
+		margin: 0 0 1rem;
+		font-size: 0.8rem;
 	}
 	.empty {
 		text-align: center;

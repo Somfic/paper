@@ -1,8 +1,13 @@
 // The library, entirely in the browser: metadata in the `books` object store,
-// raw file bytes in `files`, keyed by the same autoincrement id. There is no
-// server, so a shelf is per-browser and nothing ever leaves the device.
+// raw file bytes in `files`, cover art in `covers`, all keyed by the same
+// autoincrement id. There is no server, so a shelf is per-browser and nothing
+// ever leaves the device.
 
-/** A book in the library. Metadata is whatever the filename gives us. */
+/**
+ * A book in the library. The filename-derived fields are set at add time; the
+ * rest are filled in by `ingest()` once foliate has parsed the file, so on an
+ * un-ingested book they are absent.
+ */
 export type Book = {
 	id: number;
 	title: string;
@@ -10,12 +15,32 @@ export type Book = {
 	format: string;
 	/** ISO-8601, set at add time. */
 	added_at: string;
+	author?: string;
+	publisher?: string;
+	/** ISBN-10/13 digits only, when the epub's identifiers contain one. */
+	isbn?: string;
+	word_count?: number;
+	/** Whether `covers` holds art for this id — embedded or fetched. */
+	has_cover?: boolean;
+	/**
+	 * ISO-8601 of the last ingest attempt. Absent means never parsed, which is
+	 * what the shelf's backfill looks for; it is stamped even when parsing
+	 * fails, so a broken file isn't retried on every load.
+	 */
+	ingested_at?: string;
 };
 
+/** The subset of `Book` that ingesting a file can discover. */
+export type BookMetadata = Pick<
+	Book,
+	"title" | "author" | "publisher" | "isbn" | "word_count"
+>;
+
 const DB_NAME = "paper";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const BOOKS = "books";
 const FILES = "files";
+const COVERS = "covers";
 
 /** localStorage key for a book's saved reading position (a CFI string). */
 export const posKey = (bookId: number) => `paper.pos.${bookId}`;
@@ -34,9 +59,12 @@ function openDb(): Promise<IDBDatabase> {
 			const db = req.result;
 			if (!db.objectStoreNames.contains(BOOKS))
 				db.createObjectStore(BOOKS, { keyPath: "id", autoIncrement: true });
-			// Files are keyed by the book id assigned in BOOKS — no key path of
-			// their own, since the value is a bare Blob.
+			// Files and covers are keyed by the book id assigned in BOOKS — no key
+			// path of their own, since the values are bare Blobs.
 			if (!db.objectStoreNames.contains(FILES)) db.createObjectStore(FILES);
+			// v2. Books that predate it keep their file and get their metadata and
+			// cover backfilled from it in the background — see library/ingest.
+			if (!db.objectStoreNames.contains(COVERS)) db.createObjectStore(COVERS);
 		};
 		req.onsuccess = () => resolve(req.result);
 		req.onerror = () => reject(req.error ?? new Error("failed to open the library"));
@@ -105,7 +133,8 @@ export async function add(upload: File): Promise<Book> {
 	const db = await openDb();
 	const name = upload.name;
 	const dot = name.lastIndexOf(".");
-	// Mirror the old server-side derivation: extension → format, stem → title.
+	// Extension → format, stem → provisional title. Ingesting the file replaces
+	// the title with the epub's own, when it has one worth having.
 	const format = (dot > 0 ? name.slice(dot + 1) : "epub").toLowerCase();
 	const title = dot > 0 ? name.slice(0, dot) : name;
 
@@ -123,12 +152,46 @@ export async function add(upload: File): Promise<Book> {
 	return { id: id as number, ...entry };
 }
 
-/** Remove a book, its file, and its saved reading position. */
+/**
+ * Merge `patch` into a book's stored record and return the result. Read and
+ * write share one transaction so a concurrent patch can't drop fields.
+ */
+export async function update(id: number, patch: Partial<Book>): Promise<Book> {
+	const db = await openDb();
+	const tx = db.transaction(BOOKS, "readwrite");
+	const store = tx.objectStore(BOOKS);
+	const current = await wrap<Book | undefined>(store.get(id));
+	if (!current) throw new Error("book not found");
+	const merged = { ...current, ...patch, id };
+	store.put(merged);
+	await done(tx);
+	return merged;
+}
+
+/** Stored cover art for `id`, or undefined if there is none. */
+export async function cover(id: number): Promise<Blob | undefined> {
+	const db = await openDb();
+	return wrap<Blob | undefined>(db.transaction(COVERS, "readonly").objectStore(COVERS).get(id));
+}
+
+/** Store cover art and flag the book as having it, in one transaction. */
+export async function putCover(id: number, blob: Blob): Promise<void> {
+	const db = await openDb();
+	const tx = db.transaction([BOOKS, COVERS], "readwrite");
+	tx.objectStore(COVERS).put(blob, id);
+	const books = tx.objectStore(BOOKS);
+	const current = await wrap<Book | undefined>(books.get(id));
+	if (current) books.put({ ...current, has_cover: true });
+	await done(tx);
+}
+
+/** Remove a book, its file, its cover, and its saved reading position. */
 export async function remove(id: number): Promise<void> {
 	const db = await openDb();
-	const tx = db.transaction([BOOKS, FILES], "readwrite");
+	const tx = db.transaction([BOOKS, FILES, COVERS], "readwrite");
 	tx.objectStore(BOOKS).delete(id);
 	tx.objectStore(FILES).delete(id);
+	tx.objectStore(COVERS).delete(id);
 	await done(tx);
 	try {
 		localStorage.removeItem(posKey(id));
