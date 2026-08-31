@@ -55,7 +55,7 @@ export class ReaderController {
 	// watch the text (selections, footnote clicks) has to be handed each one as
 	// it arrives. A set rather than one slot: several features want this, and a
 	// single slot would let whichever mounted last silently displace the rest.
-	#sectionListeners = new Set<(doc: Document) => void>();
+	#sectionListeners = new Set<(doc: Document, index: number) => void>();
 	// Don't persist position until after we've restored it — the initial render
 	// fires `relocate` at the book's start and would clobber the save.
 	#canPersist = false;
@@ -68,6 +68,11 @@ export class ReaderController {
 
 	get settings(): ReaderSettings {
 		return this.#settings;
+	}
+
+	/** foliate's own view, for the few features that need its API directly. */
+	get view(): any {
+		return this.#view;
 	}
 
 	// ── derived display values ─────────────────────────────────────
@@ -210,7 +215,8 @@ export class ReaderController {
 					// inside the iframe, so they never reach the window listener.
 					e.detail?.doc?.addEventListener("keydown", this.onKey);
 					if (e.detail?.doc)
-						for (const listen of this.#sectionListeners) listen(e.detail.doc);
+						for (const listen of this.#sectionListeners)
+							listen(e.detail.doc, e.detail.index ?? -1);
 					// A section just rendered — force foliate to recompute its page
 					// height now that content exists (it measures short at open()).
 					this.scheduleRelayout();
@@ -257,10 +263,11 @@ export class ReaderController {
 	}
 
 	/**
-	 * Subscribe to each section document as it renders. Returns an unsubscribe;
-	 * `unload()` drops every listener, so a book switch can't leak them.
+	 * Subscribe to each section document as it renders, with the spine index it
+	 * was rendered from. Returns an unsubscribe; `unload()` drops every listener,
+	 * so a book switch can't leak them.
 	 */
-	onSection(listener: (doc: Document) => void): () => void {
+	onSection(listener: (doc: Document, index: number) => void): () => void {
 		this.#sectionListeners.add(listener);
 		return () => this.#sectionListeners.delete(listener);
 	}

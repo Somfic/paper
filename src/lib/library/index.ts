@@ -1,7 +1,9 @@
 // The library, entirely in the browser: metadata in the `books` object store,
-// raw file bytes in `files`, cover art in `covers`, all keyed by the same
-// autoincrement id. There is no server, so a shelf is per-browser and nothing
-// ever leaves the device.
+// raw file bytes in `files`, cover art in `covers`, the cached character scan in
+// `characters`, all keyed by the same autoincrement id. There is no server, so a
+// shelf is per-browser and nothing ever leaves the device.
+
+import type { CharacterIndex } from "$lib/reader/characters";
 
 /**
  * A book in the library. The filename-derived fields are set at add time; the
@@ -37,10 +39,11 @@ export type BookMetadata = Pick<
 >;
 
 const DB_NAME = "paper";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const BOOKS = "books";
 const FILES = "files";
 const COVERS = "covers";
+const CHARACTERS = "characters";
 
 /** localStorage key for a book's saved reading position (a CFI string). */
 export const posKey = (bookId: number) => `paper.pos.${bookId}`;
@@ -65,6 +68,13 @@ function openDb(): Promise<IDBDatabase> {
 			// v2. Books that predate it keep their file and get their metadata and
 			// cover backfilled from it in the background — see library/ingest.
 			if (!db.objectStoreNames.contains(COVERS)) db.createObjectStore(COVERS);
+			// v3. Every store here is created only when it is missing, so upgrading
+			// from any earlier version adds what is new and leaves the rest — and
+			// its contents — exactly as they were. The character scan is a pure
+			// function of the file, so a book that predates this store just gets
+			// scanned again next time it is opened; see reader/characters.
+			if (!db.objectStoreNames.contains(CHARACTERS))
+				db.createObjectStore(CHARACTERS);
 		};
 		req.onsuccess = () => resolve(req.result);
 		req.onerror = () => reject(req.error ?? new Error("failed to open the library"));
@@ -185,13 +195,39 @@ export async function putCover(id: number, blob: Blob): Promise<void> {
 	await done(tx);
 }
 
-/** Remove a book, its file, its cover, and its saved reading position. */
+/**
+ * The cached character scan for `id`, or undefined when it was never built.
+ * Callers check `version` themselves: an index built by older heuristics is
+ * still readable, just not worth keeping.
+ */
+export async function characters(
+	id: number,
+): Promise<CharacterIndex | undefined> {
+	const db = await openDb();
+	return wrap<CharacterIndex | undefined>(
+		db.transaction(CHARACTERS, "readonly").objectStore(CHARACTERS).get(id),
+	);
+}
+
+/** Store the character scan for `id`, replacing any earlier one. */
+export async function putCharacters(
+	id: number,
+	index: CharacterIndex,
+): Promise<void> {
+	const db = await openDb();
+	const tx = db.transaction(CHARACTERS, "readwrite");
+	tx.objectStore(CHARACTERS).put(index, id);
+	await done(tx);
+}
+
+/** Remove a book, its file, its cover, its cast, and its reading position. */
 export async function remove(id: number): Promise<void> {
 	const db = await openDb();
-	const tx = db.transaction([BOOKS, FILES, COVERS], "readwrite");
+	const tx = db.transaction([BOOKS, FILES, COVERS, CHARACTERS], "readwrite");
 	tx.objectStore(BOOKS).delete(id);
 	tx.objectStore(FILES).delete(id);
 	tx.objectStore(COVERS).delete(id);
+	tx.objectStore(CHARACTERS).delete(id);
 	await done(tx);
 	try {
 		localStorage.removeItem(posKey(id));
