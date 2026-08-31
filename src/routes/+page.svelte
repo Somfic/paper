@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { Button } from "glow";
+	import { Button, ToggleInput } from "glow";
 	import * as library from "$lib/library";
 	import type { Book } from "$lib/library";
+	import { backfill, needsIngest } from "$lib/library/ingest";
+	import { loadShelfSettings, setOpenLibraryCovers, shelf } from "$lib/shelf/settings.svelte";
 	import BookCard from "$lib/components/shelf/BookCard.svelte";
 
 	let books = $state<Book[]>([]);
 	let loading = $state(true);
 	let adding = $state(false);
+	let ingesting = $state(0);
 	let error = $state<string | null>(null);
 	let fileInput: HTMLInputElement;
 
@@ -19,9 +22,34 @@
 		} finally {
 			loading = false;
 		}
+		void runBackfill();
 	}
 
-	onMount(refresh);
+	onMount(() => {
+		loadShelfSettings();
+		void refresh();
+	});
+
+	/**
+	 * Parse anything not parsed yet — books added before the shelf knew how to
+	 * read them, and books added a moment ago. Never awaited by the render path:
+	 * cards show the filename immediately and fill in as each book lands.
+	 */
+	async function runBackfill() {
+		const pending = books.filter(needsIngest);
+		if (!pending.length) return;
+		ingesting = pending.length;
+		try {
+			await backfill(pending, (updated) => {
+				books = books.map((b) => (b.id === updated.id ? updated : b));
+				ingesting -= 1;
+			});
+		} catch (e: any) {
+			error = e?.message ?? String(e);
+		} finally {
+			ingesting = 0;
+		}
+	}
 
 	async function onFiles(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -31,15 +59,15 @@
 		error = null;
 		try {
 			for (const file of files) {
-				await library.add(file);
+				books = [await library.add(file), ...books];
 			}
-			await refresh();
 		} catch (e: any) {
 			error = e?.message ?? String(e);
 		} finally {
 			adding = false;
 			input.value = "";
 		}
+		void runBackfill();
 	}
 
 	async function remove(id: number) {
@@ -72,6 +100,19 @@
 		/>
 	</header>
 
+	<div class="online-covers">
+		<ToggleInput
+			label="Look up missing covers on Open Library"
+			checked={shelf.openLibraryCovers}
+			onChange={setOpenLibraryCovers}
+		/>
+		<p class="fine">
+			Off by default. When on, books without a cover of their own have their ISBN sent to
+			openlibrary.org, which tells that site what is on your shelf. When off, nothing leaves this
+			browser and coverless books get a generated cover instead.
+		</p>
+	</div>
+
 	{#if error}
 		<p class="error">{error}</p>
 	{/if}
@@ -89,6 +130,9 @@
 			/>
 		</div>
 	{:else}
+		{#if ingesting > 0}
+			<p class="muted status">reading {ingesting} book{ingesting === 1 ? "" : "s"}…</p>
+		{/if}
 		<div class="shelf">
 			{#each books as book (book.id)}
 				<BookCard {book} onDelete={remove} />
@@ -107,12 +151,24 @@
 		display: flex;
 		align-items: center;
 		gap: 1rem;
-		margin-bottom: 2rem;
+		margin-bottom: 1.25rem;
 	}
 	h1 {
 		margin: 0;
 		font-size: 1.6rem;
 		flex: 1;
+	}
+	.online-covers {
+		margin-bottom: 2rem;
+		padding-bottom: 1.25rem;
+		border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+	}
+	.fine {
+		margin: 0.4rem 0 0;
+		max-width: 60ch;
+		font-size: 0.75rem;
+		line-height: 1.45;
+		opacity: 0.6;
 	}
 	.error {
 		color: #cf222e;
@@ -122,6 +178,10 @@
 	}
 	.muted {
 		opacity: 0.6;
+	}
+	.status {
+		margin: 0 0 1rem;
+		font-size: 0.8rem;
 	}
 	.empty {
 		text-align: center;
