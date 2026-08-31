@@ -51,6 +51,11 @@ export class ReaderController {
 	#wheelIdle: ReturnType<typeof setTimeout> | undefined;
 	#ro: ResizeObserver | undefined;
 	#destroyed = false;
+	// Sections render in their own iframe documents, so anything that needs to
+	// watch the text (selections, footnote clicks) has to be handed each one as
+	// it arrives. A set rather than one slot: several features want this, and a
+	// single slot would let whichever mounted last silently displace the rest.
+	#sectionListeners = new Set<(doc: Document) => void>();
 	// Don't persist position until after we've restored it — the initial render
 	// fires `relocate` at the book's start and would clobber the save.
 	#canPersist = false;
@@ -204,6 +209,8 @@ export class ReaderController {
 					// Arrow/space keys fire on the section's own document when focus is
 					// inside the iframe, so they never reach the window listener.
 					e.detail?.doc?.addEventListener("keydown", this.onKey);
+					if (e.detail?.doc)
+						for (const listen of this.#sectionListeners) listen(e.detail.doc);
 					// A section just rendered — force foliate to recompute its page
 					// height now that content exists (it measures short at open()).
 					this.scheduleRelayout();
@@ -249,9 +256,19 @@ export class ReaderController {
 		return () => this.unload();
 	}
 
+	/**
+	 * Subscribe to each section document as it renders. Returns an unsubscribe;
+	 * `unload()` drops every listener, so a book switch can't leak them.
+	 */
+	onSection(listener: (doc: Document) => void): () => void {
+		this.#sectionListeners.add(listener);
+		return () => this.#sectionListeners.delete(listener);
+	}
+
 	unload() {
 		this.#destroyed = true;
 		this.footnotes.detach();
+		this.#sectionListeners.clear();
 		window.removeEventListener("keydown", this.onKey);
 		document.removeEventListener("fullscreenchange", this.#onFullscreen);
 		this.#container?.removeEventListener("wheel", this.onWheel);
