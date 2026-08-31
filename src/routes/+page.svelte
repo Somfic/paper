@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { Button, ToggleInput } from "glow";
+	import { Button } from "glow";
 	import * as library from "$lib/library";
 	import type { Book } from "$lib/library";
 	import { backfill, needsIngest } from "$lib/library/ingest";
-	import { loadShelfSettings, setOpenLibraryCovers, shelf } from "$lib/shelf/settings.svelte";
 	import BookCard from "$lib/components/shelf/BookCard.svelte";
 
 	let books = $state<Book[]>([]);
@@ -26,7 +25,6 @@
 	}
 
 	onMount(() => {
-		loadShelfSettings();
 		void refresh();
 	});
 
@@ -100,19 +98,6 @@
 		/>
 	</header>
 
-	<div class="online-covers">
-		<ToggleInput
-			label="Look up missing covers on Open Library"
-			checked={shelf.openLibraryCovers}
-			onChange={setOpenLibraryCovers}
-		/>
-		<p class="fine">
-			Off by default. When on, books without a cover of their own have their ISBN sent to
-			openlibrary.org, which tells that site what is on your shelf. When off, nothing leaves this
-			browser and coverless books get a generated cover instead.
-		</p>
-	</div>
-
 	{#if error}
 		<p class="error">{error}</p>
 	{/if}
@@ -151,24 +136,12 @@
 		display: flex;
 		align-items: center;
 		gap: 1rem;
-		margin-bottom: 1.25rem;
+		margin-bottom: 2rem;
 	}
 	h1 {
 		margin: 0;
 		font-size: 1.6rem;
 		flex: 1;
-	}
-	.online-covers {
-		margin-bottom: 2rem;
-		padding-bottom: 1.25rem;
-		border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-	}
-	.fine {
-		margin: 0.4rem 0 0;
-		max-width: 60ch;
-		font-size: 0.75rem;
-		line-height: 1.45;
-		opacity: 0.6;
 	}
 	.error {
 		color: #cf222e;

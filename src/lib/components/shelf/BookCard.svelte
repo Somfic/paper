@@ -2,7 +2,6 @@
 	import * as library from "$lib/library";
 	import type { Book } from "$lib/library";
 	import { lookupCover } from "$lib/library/covers";
-	import { shelf } from "$lib/shelf/settings.svelte";
 	import GeneratedCover from "./GeneratedCover.svelte";
 
 	let {
@@ -18,17 +17,17 @@
 	// revoke an object URL the <img> is still loading.
 	let coverId = $derived(book.id);
 	let hasCover = $derived(!!book.has_cover);
-	let remoteIsbn = $derived(shelf.openLibraryCovers ? (book.isbn ?? "") : "");
+	let isbn = $derived(book.isbn ?? "");
 
 	$effect(() => {
-		const [id, stored, isbn] = [coverId, hasCover, remoteIsbn];
+		const [id, stored, lookup] = [coverId, hasCover, isbn];
 		let url: string | null = null;
 		let cancelled = false;
 
 		(async () => {
 			try {
 				let blob = stored ? await library.cover(id) : undefined;
-				if (!blob && isbn) blob = (await lookupCover(id, isbn)) ?? undefined;
+				if (!blob && lookup) blob = (await lookupCover(id, lookup)) ?? undefined;
 				if (cancelled || !blob) return;
 				url = URL.createObjectURL(blob);
 				coverUrl = url;

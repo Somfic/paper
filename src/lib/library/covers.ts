@@ -1,7 +1,7 @@
-// Cover art, in order of preference: what the file embeds, then — only if the
-// reader has opted in — Open Library, then a generated tri-band drawn from the
-// title. The first two are Blobs cached in the `covers` object store; the last
-// is SVG rendered live, so it costs nothing to keep regenerating.
+// Cover art, in order of preference: what the file embeds, then Open Library by
+// ISBN, then a generated tri-band drawn from the title. The first two are Blobs
+// cached in the `covers` object store; the last is SVG rendered live, so it
+// costs nothing to keep regenerating.
 
 import * as library from "$lib/library";
 
@@ -83,9 +83,9 @@ const OPEN_LIBRARY = (isbn: string) =>
 const missed = new Set<number>();
 
 /**
- * Ask Open Library for `book`'s cover and cache it in `covers`, so the request
- * happens once per book ever. Returns null on a miss — including a miss earlier
- * this session, so flipping the setting back and forth doesn't re-ask.
+ * Ask Open Library for a cover by ISBN and cache it in `covers`, so this is the
+ * one request a book ever causes: a hit is stored, and a miss is remembered for
+ * the session so re-rendering the card doesn't re-ask.
  */
 export async function lookupCover(id: number, isbn: string): Promise<Blob | null> {
 	if (!isbn || missed.has(id)) return null;
