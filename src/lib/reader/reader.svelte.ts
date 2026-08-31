@@ -3,6 +3,7 @@ import * as library from "$lib/library";
 import { posKey, type Book } from "$lib/library";
 import { THEMES, contentCSS, type Theme } from "./themes";
 import type { ReaderSettings } from "./settings.svelte";
+import { FootnoteController } from "./footnotes.svelte";
 import {
 	authorName,
 	flattenToc,
@@ -37,6 +38,9 @@ export class ReaderController {
 	ready = $state(false);
 	isFullscreen = $state(false);
 
+	/** Footnote references open in a popover instead of navigating; see there. */
+	footnotes: FootnoteController;
+
 	// ── private engine refs ────────────────────────────────────────
 	#settings: ReaderSettings;
 	#view: any = null;
@@ -54,6 +58,7 @@ export class ReaderController {
 
 	constructor(settings: ReaderSettings) {
 		this.#settings = settings;
+		this.footnotes = new FootnoteController(settings);
 	}
 
 	get settings(): ReaderSettings {
@@ -165,6 +170,7 @@ export class ReaderController {
 				view.style.inset = "0";
 				container.append(view);
 				container.addEventListener("wheel", this.onWheel, { passive: false });
+				this.footnotes.attach(view);
 
 				// Recompute foliate's page height whenever the container's size
 				// settles/changes (fires on first real layout + every resize).
@@ -191,6 +197,7 @@ export class ReaderController {
 				// Each section renders in its own iframe document; attach the wheel
 				// handler to each as it loads (the swipe lands on the content, not us).
 				view.addEventListener("load", (e: any) => {
+					this.footnotes.sectionLoaded(e.detail?.doc);
 					e.detail?.doc?.addEventListener("wheel", this.onWheel, {
 						passive: false,
 					});
@@ -244,6 +251,7 @@ export class ReaderController {
 
 	unload() {
 		this.#destroyed = true;
+		this.footnotes.detach();
 		window.removeEventListener("keydown", this.onKey);
 		document.removeEventListener("fullscreenchange", this.#onFullscreen);
 		this.#container?.removeEventListener("wheel", this.onWheel);
