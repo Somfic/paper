@@ -1,6 +1,6 @@
 import type { PopoverMenuEntry } from "glow";
-import { api } from "$lib/api";
-import type { Book } from "$lib/schema";
+import * as library from "$lib/library";
+import { posKey, type Book } from "$lib/library";
 import { THEMES, contentCSS, type Theme } from "./themes";
 import type { ReaderSettings } from "./settings.svelte";
 import {
@@ -8,7 +8,6 @@ import {
 	flattenToc,
 	loadFoliate,
 	pickText,
-	posKey,
 	type TocEntry,
 } from "./foliate";
 
@@ -153,7 +152,7 @@ export class ReaderController {
 
 		(async () => {
 			try {
-				this.book = await api.library.get(bookId);
+				this.book = await library.get(bookId);
 				await loadFoliate();
 				if (this.#destroyed) return;
 
@@ -209,7 +208,9 @@ export class ReaderController {
 					saved = localStorage.getItem(posKey(bookId));
 				} catch {}
 
-				await view.open(`/api/book/${bookId}`);
+				// foliate accepts anything with `arrayBuffer()`, so the stored
+				// File goes straight in — no object URL to revoke.
+				await view.open(await library.file(bookId));
 				if (this.#destroyed) {
 					view.close?.();
 					return;

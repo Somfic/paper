@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Book } from "$lib/schema";
+	import type { Book } from "$lib/library";
 
 	let {
 		book,

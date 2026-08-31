@@ -3,9 +3,6 @@
 
 export type TocEntry = { label: string; href: string; depth: number };
 
-/** localStorage key for a book's saved reading position (a CFI string). */
-export const posKey = (bookId: number) => `paper.pos.${bookId}`;
-
 // ── metadata helpers (foliate values can be string | object | array) ──
 export function pickText(v: any): string {
 	if (!v) return "";

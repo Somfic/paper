@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { Button } from "glow";
-	import { api } from "$lib/api";
-	import type { Book } from "$lib/schema";
+	import * as library from "$lib/library";
+	import type { Book } from "$lib/library";
 	import BookCard from "$lib/components/shelf/BookCard.svelte";
 
 	let books = $state<Book[]>([]);
 	let loading = $state(true);
-	let uploading = $state(false);
+	let adding = $state(false);
 	let error = $state<string | null>(null);
 	let fileInput: HTMLInputElement;
 
 	async function refresh() {
 		try {
-			books = await api.library.list();
+			books = await library.list();
 		} catch (e: any) {
 			error = e?.message ?? String(e);
 		} finally {
@@ -27,27 +27,24 @@
 		const input = e.target as HTMLInputElement;
 		const files = Array.from(input.files ?? []);
 		if (!files.length) return;
-		uploading = true;
+		adding = true;
 		error = null;
 		try {
 			for (const file of files) {
-				const form = new FormData();
-				form.append("file", file);
-				const res = await fetch("/api/upload", { method: "POST", body: form });
-				if (!res.ok) throw new Error(`upload failed (${res.status})`);
+				await library.add(file);
 			}
 			await refresh();
 		} catch (e: any) {
 			error = e?.message ?? String(e);
 		} finally {
-			uploading = false;
+			adding = false;
 			input.value = "";
 		}
 	}
 
 	async function remove(id: number) {
 		try {
-			await api.library.delete(id);
+			await library.remove(id);
 			books = books.filter((b) => b.id !== id);
 		} catch (e: any) {
 			error = e?.message ?? String(e);
@@ -60,9 +57,9 @@
 		<h1>📖 paper</h1>
 		<Button
 			icon="Plus"
-			label={uploading ? "uploading…" : "Add book"}
-			loading={uploading}
-			disabled={uploading}
+			label={adding ? "adding…" : "Add book"}
+			loading={adding}
+			disabled={adding}
 			onclick={() => fileInput.click()}
 		/>
 		<input
@@ -87,7 +84,7 @@
 			<Button
 				variant="outlined"
 				icon="BookOpen"
-				label="Upload an .epub to get started"
+				label="Add an .epub to get started"
 				onclick={() => fileInput.click()}
 			/>
 		</div>
