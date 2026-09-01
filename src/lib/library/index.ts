@@ -51,6 +51,9 @@ export const posKey = (bookId: number) => `paper.pos.${bookId}`;
 /** localStorage key for a book's dog-ears (a JSON array of folds). */
 export const foldsKey = (bookId: number) => `paper.folds.${bookId}`;
 
+/** localStorage key for your own notes on a book's cast, by character name. */
+export const notesKey = (bookId: number) => `paper.notes.${bookId}`;
+
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
@@ -223,7 +226,10 @@ export async function putCharacters(
 	await done(tx);
 }
 
-/** Remove a book, its file, its cover, its cast, its position, and its folds. */
+/**
+ * Remove a book: its file, its cover, its cast, its reading position, its
+ * dog-ears, and your notes on the people in it.
+ */
 export async function remove(id: number): Promise<void> {
 	const db = await openDb();
 	const tx = db.transaction([BOOKS, FILES, COVERS, CHARACTERS], "readwrite");
@@ -235,5 +241,6 @@ export async function remove(id: number): Promise<void> {
 	try {
 		localStorage.removeItem(posKey(id));
 		localStorage.removeItem(foldsKey(id));
+		localStorage.removeItem(notesKey(id));
 	} catch {}
 }

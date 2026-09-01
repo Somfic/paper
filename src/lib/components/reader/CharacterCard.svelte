@@ -1,7 +1,14 @@
 <script lang="ts">
-	import type { CharacterEvidence } from "$lib/reader/characters.svelte";
+	import type {
+		CharacterController,
+		CharacterEvidence,
+	} from "$lib/reader/characters.svelte";
+	import CharacterNoteField from "./CharacterNoteField.svelte";
 
-	let { evidence }: { evidence: CharacterEvidence } = $props();
+	let {
+		evidence,
+		characters,
+	}: { evidence: CharacterEvidence; characters: CharacterController } = $props();
 </script>
 
 <div class="card">
@@ -25,19 +32,27 @@
 			No sentence worth quoting from what you have read yet.
 		</p>
 	{/if}
+
+	<!-- Your own note sits under the book's evidence, and reads differently from
+	     it: the quotes above are the book's words, this one is yours. The card
+	     is reused as you tap from one name to the next, so the field is keyed to
+	     the character it belongs to. -->
+	{#key evidence.name}
+		<CharacterNoteField name={evidence.name} {characters} />
+	{/key}
 </div>
 
 <style>
 	.card {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.55rem;
 	}
 	.meta {
 		margin: 0;
 		font-size: 0.72rem;
 		letter-spacing: 0.02em;
-		color: var(--dim);
+		color: var(--glow-text-muted);
 	}
 	.quotes {
 		list-style: none;
@@ -48,7 +63,7 @@
 		gap: 0.5rem;
 	}
 	.quotes li {
-		border-left: 2px solid var(--border);
+		border-left: 2px solid var(--glow-border-color);
 		padding-left: 0.6rem;
 	}
 	.text {
@@ -64,11 +79,11 @@
 		font-size: 0.66rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: var(--dim);
+		color: var(--glow-text-muted);
 	}
 	.empty {
 		margin: 0;
 		font-size: 0.8rem;
-		color: var(--dim);
+		color: var(--glow-text-muted);
 	}
 </style>
