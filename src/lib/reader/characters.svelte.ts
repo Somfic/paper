@@ -33,6 +33,7 @@ import {
 	rangeViewportRect,
 	sentences,
 	INDEX_VERSION,
+	isNotStory,
 	MIN_CAST,
 	type AliasMatcher,
 	type CharacterIndex,
@@ -413,7 +414,9 @@ export class CharacterController {
 				if (section?.linear === false || section?.linear === "no") continue;
 				try {
 					const doc = await section.createDocument?.();
-					if (doc) {
+					// The colophon and the licence page are prose full of capitalised
+					// phrases, and they are not the story; see isNotStory.
+					if (doc && !isNotStory(doc)) {
 						const flat = flattenSection(doc);
 						const payload: SectionText = {
 							index: i,

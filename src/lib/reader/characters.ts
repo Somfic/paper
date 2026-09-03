@@ -10,7 +10,7 @@
 // by comparing DOM ranges, not offsets. See `CharacterController`.
 
 /** Bumped when the extraction heuristics change, which invalidates the cache. */
-export const INDEX_VERSION = 2;
+export const INDEX_VERSION = 3;
 
 /** Below this a section is a title page or a dedication, not story. */
 export const MIN_SECTION_WORDS = 250;
@@ -45,6 +45,71 @@ export type CharacterIndex = {
 	labels: (string | undefined)[];
 	entries: CharacterEntry[];
 };
+
+// ── which sections are the book ────────────────────────────────
+
+/** The EPUB semantics namespace, which is where epub:type actually lives. */
+const OPS_NS = "http://www.idpf.org/2007/ops";
+
+/**
+ * EPUB semantic types for the parts of a book that are not the book: the title
+ * page, the imprint, the colophon, the licence. Scanning them is how "Standard
+ * Ebooks", "Uncopyright" and "Universal Public Domain" turn up in a novel's
+ * cast — on the page they are capitalised, they recur, and they sit in prose,
+ * which is everything the extractor looks for in a name.
+ *
+ * Named types only, never the blanket "frontmatter"/"backmatter" the same files
+ * also carry: a book is free to file an epilogue under backmatter, and losing a
+ * real cast to that would be a worse failure than admitting a colophon.
+ */
+const NOT_STORY = new Set([
+	"cover",
+	"titlepage",
+	"halftitlepage",
+	"fulltitlepage",
+	"frontispiece",
+	"imprint",
+	"colophon",
+	"copyright-page",
+	"toc",
+	"landmarks",
+	"loi",
+	"lot",
+	"index",
+	"glossary",
+	"bibliography",
+	"acknowledgments",
+	"acknowledgements",
+	"contributors",
+	"other-credits",
+	"errata",
+	"revision-history",
+	"dedication",
+	"epigraph",
+]);
+
+/**
+ * Whether a section is front or back matter rather than the story. The type
+ * sits on <body> in some producers and on the wrapper just inside it in others
+ * — Standard Ebooks writes <body epub:type="backmatter"><section
+ * epub:type="colophon"> — so both are looked at. ARIA's doc-* roles are checked
+ * alongside, since that is what EPUB 2-era files carry instead.
+ */
+export function isNotStory(doc: Document): boolean {
+	const body = doc?.body;
+	if (!body) return false;
+	for (const el of [body, ...Array.from(body.children).slice(0, 2)]) {
+		// Namespaced first (the document is parsed as XML, where epub:type is a
+		// real namespaced attribute), then the plain qualified name for files
+		// that were parsed as HTML.
+		const type =
+			el.getAttributeNS?.(OPS_NS, "type") ?? el.getAttribute?.("epub:type") ?? "";
+		const role = el.getAttribute?.("role") ?? "";
+		for (const token of `${type} ${role}`.toLowerCase().split(/\s+/))
+			if (token && NOT_STORY.has(token.replace(/^doc-/, ""))) return true;
+	}
+	return false;
+}
 
 // ── flattening a section ───────────────────────────────────────
 
@@ -82,8 +147,6 @@ const BLOCK = new Set([
 ]);
 
 const HEADING = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "title"]);
-
-const OPS_NS = "http://www.idpf.org/2007/ops";
 
 /** Chapter numbers, running heads and page markers: prose-shaped, but not prose. */
 function isHeadingLike(el: Element): boolean {
