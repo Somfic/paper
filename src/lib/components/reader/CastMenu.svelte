@@ -82,7 +82,6 @@
 		overflow-y: auto;
 		padding: 0.55rem;
 	}
-	.lede,
 	.empty {
 		margin: 0 0.25rem 0.5rem;
 		font-size: 0.7rem;

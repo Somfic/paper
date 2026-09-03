@@ -18,7 +18,7 @@
 import { browser } from "$app/environment";
 import * as library from "$lib/library";
 import { notesKey } from "$lib/library";
-import { flattenToc } from "./foliate";
+import { flattenToc, loadFoliate } from "./foliate";
 import type { ReaderController } from "./reader.svelte";
 import { scoreQuote } from "./characters-extract";
 import type { SectionText } from "./characters-extract";
@@ -42,8 +42,6 @@ import {
 	type Rect,
 } from "./characters";
 
-// Same URL as the reader's own script tag, so the browser reuses the module.
-const VIEW_URL = "/foliate-js/view.js";
 
 /** How long after a book opens the scan may start. Reading comes first. */
 const SCAN_DELAY = 1500;
@@ -391,7 +389,7 @@ export class CharacterController {
 		let worker: Worker | null = null;
 		try {
 			const file = await library.file(bookId);
-			const { makeBook } = await import(/* @vite-ignore */ VIEW_URL);
+			const { makeBook } = await loadFoliate();
 			const book = await makeBook(file);
 			const labels = await sectionLabels(book);
 

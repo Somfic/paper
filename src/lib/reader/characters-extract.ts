@@ -6,6 +6,13 @@
 // Every rule below is a guess that is right most of the time, and the comments
 // say which way each one errs. It runs in a worker (see characters.worker.ts)
 // because a whole novel of this work would visibly stall the reader.
+//
+// All of that is a way of ruling candidates *out*, and on its own it produced a
+// gazetteer rather than a cast: London, Bukovina, the Slovaks and the Magyars
+// trip none of it. So the last word belongs to one rule that asks for evidence
+// *for* a person — the three things prose does to people and to nothing else,
+// which are to let them own something, to give them an honorific, and to put
+// them next to a speech verb. See the person test at the end of `extract`.
 
 import {
 	cleanQuote,
@@ -69,7 +76,7 @@ const STOP = words(
 	god gods christ jesus lord-god damn damned devil hell heaven
 	ah aha alas anyway besides bloody christ eh er ha hey hm hmm huh mm no oh
 	okay oops ow please sorry thanks thank true ugh uh um well what why yeah yes
-	you-know
+	you-know aye nay lor blimey gawd hush hark
 	majesty eminence highness excellency grace worship ladyship lordship
 	mmm hmmm ahh ohh aah`,
 );
@@ -202,7 +209,9 @@ const TITLES = words(
 	meneer mevrouw mijnheer mevr dhr juffrouw juf dokter dominee pastoor
 	koning koningin prins prinses graaf gravin hertog hertogin ridder
 	kapitein luitenant kolonel sergeant generaal agent rechercheur meester
-	broeder zuster pater`,
+	broeder zuster pater
+	herr frau fraulein fräulein signor signora signorina senor señor senora
+	señora senorita señorita don doña dona sahib effendi pasha bey khan`,
 );
 
 // Lower-case words allowed *inside* a name. "the" is deliberately absent: it
@@ -223,8 +232,56 @@ const LOCATIVE = new Set(
 
 const ARTICLES = new Set(["the", "a", "an"]);
 
-const SPEECH =
-	/\b(said|says|asked|replied|answered|muttered|murmured|shouted|snapped|growled|whispered|added|repeated|agreed|continued|called|cried|demanded|observed|remarked|hissed|barked|grunted|sighed|laughed|nodded|shrugged|smiled|frowned)\b/i;
+// Generic nouns that a place name ends with. Checked only as the *last* word
+// of a name of two or more words, which is what makes it safe: "Gracechurch
+// Street" and "Camden Town" go, and the housekeeper called Hill stays. Places
+// are the one false positive that earns person evidence honestly — a letter is
+// addressed from Regent Street, so somebody said it — and this is the shape
+// they nearly all take.
+const PLACE_TAIL = words(
+	`street st road lane avenue drive way square place park gardens green
+	terrace court close row crescent quay wharf embankment
+	house hall lodge cottage manor grange abbey priory castle keep tower
+	farm mill inn tavern arms church chapel cathedral school college hospital
+	prison asylum station harbour port docks
+	bay cape point island isle lake river creek brook valley dale moor fell
+	wood woods forest common heath marsh field fields hill hills mount mountain
+	town city village borough county shire province parish district`,
+);
+
+// Verbs that attribute speech. Standing next to one is, along with a
+// possessive and an honorific, the entire evidence that a capitalised word is
+// a person rather than a place — see the person test in `extract` — so this is
+// per language rather than English-only. A Dutch novel whose dialogue is all
+// "zei" and "vroeg" would otherwise have no person evidence anywhere in it,
+// and no cast at all.
+const SPEECH_BY_LANGUAGE: Record<string, string> = {
+	en: `said says say asked asks replied answered muttered murmured shouted
+		snapped growled whispered added repeated agreed continued called cried
+		demanded observed remarked hissed barked grunted sighed laughed nodded
+		shrugged smiled frowned told tells`,
+	nl: `zei zeg zegt zeggen zeiden gezegd vroeg vraag vraagt vroegen gevraagd
+		antwoordde antwoordt antwoorden riep roept riepen schreeuwde fluisterde
+		mompelde stamelde bromde gromde siste snauwde herhaalde vervolgde
+		beaamde knikte zuchtte lachte glimlachte grinnikte hijgde vertelde`,
+};
+
+/** One matcher over the speech verbs of every language the book reads as. */
+function speechVerbs(languages: Iterable<string>): RegExp {
+	const all = new Set<string>();
+	// English stays in force whatever the language, for the same reason its
+	// stopwords do: an epub's own scaffolding is in English more often than not.
+	for (const lang of ["en", ...languages])
+		for (const verb of (SPEECH_BY_LANGUAGE[lang] ?? "").split(/\s+/))
+			if (verb) all.add(verb);
+	return new RegExp(`^(?:${[...all].join("|")})$`, "i");
+}
+
+/** English only, and only for ranking quotes — see `scoreQuote`. */
+const SPEECH = new RegExp(
+	`\\b(?:${SPEECH_BY_LANGUAGE.en.split(/\s+/).filter(Boolean).join("|")})\\b`,
+	"i",
+);
 
 const DESCRIPTIVE =
 	/\b(was|were|is|are|had|has|looked|seemed|stood|sat|wore|felt|knew|became|remained|appeared|carried|held)\b/;
@@ -317,6 +374,7 @@ function pass1(
 	sections: SectionText[],
 	exclude: Set<string>,
 	stop: Set<string>,
+	speech: RegExp,
 ): Pass1 {
 	const candidates = new Map<string, Occurrence[]>();
 	const lower = new Map<string, number>();
@@ -387,7 +445,13 @@ function pass1(
 				let p = 0;
 				while (p < chunk.length && TITLES.has(norm(chunk[p].w))) p++;
 				const titleWords = p;
-				while (p < chunk.length && CONNECTORS.has(norm(chunk[p].w))) p++;
+				// Only the stranding case: a connector at the very front of a chunk
+				// is the beginning of the surname, not a joiner, since the joiners
+				// English uses that way ("of", "the") are stopwords a chunk cannot
+				// open with. Stripping it unconditionally made Van Helsing "Helsing"
+				// and left the "Van" on the page with no underline under it.
+				if (titleWords)
+					while (p < chunk.length && CONNECTORS.has(norm(chunk[p].w))) p++;
 				if (p >= chunk.length) {
 					k = end + 1;
 					continue;
@@ -418,8 +482,8 @@ function pass1(
 						person:
 							possessive ||
 							!!title ||
-							(!!before && SPEECH.test(before)) ||
-							(!!after && SPEECH.test(after)),
+							(!!before && speech.test(before)) ||
+							(!!after && speech.test(after)),
 					};
 					const list = candidates.get(name);
 					if (list) list.push(occ);
@@ -458,7 +522,12 @@ function isCharacter(
 	// Only ever on a title page or in the copyright notice.
 	if (occ.every((o) => tiny.has(o.i))) return false;
 
-	const single = !name.includes(" ");
+	const parts = name.split(" ");
+	// An address, not a person — see PLACE_TAIL.
+	if (parts.length > 1 && PLACE_TAIL.has(norm(parts[parts.length - 1])))
+		return false;
+
+	const single = parts.length === 1;
 	if (single) {
 		// The book also writes this word in lower case, often — so the capital is
 		// positional, not a name. Kills "Sun", "Spring", "Fortune".
@@ -476,6 +545,27 @@ function isCharacter(
 	// Reads like somewhere you go rather than someone you meet.
 	if (loc >= 0.3 && person < 0.1) return false;
 	return true;
+}
+
+/**
+ * "the Lucases", "the Bennets", "the Slovaks" — a family or a people, and not
+ * anyone the reader can be introduced to. They pass every other test here
+ * because they behave exactly like the name they are built from.
+ *
+ * The test is two-sided on purpose, because plenty of real surnames end in s:
+ * the word has to be some *other* name the book uses, with a plural stuck on
+ * the end, *and* the book has to keep putting "the" in front of it. "Jones"
+ * fails the first ("Jone" is nobody) and "Collins" the second, so both keep
+ * their place in the cast.
+ */
+function isGroup(name: string, occ: Occurrence[], p1: Pass1): boolean {
+	const last = norm(name.split(" ").pop() ?? "");
+	const stems = [
+		last.endsWith("es") ? last.slice(0, -2) : "",
+		last.endsWith("s") ? last.slice(0, -1) : "",
+	];
+	if (!stems.some((s) => s.length >= 3 && (p1.caps.get(s) ?? 0) >= 2)) return false;
+	return occ.filter((o) => o.article).length / occ.length >= 0.4;
 }
 
 // ── the genitive s ─────────────────────────────────────────────
@@ -694,7 +784,7 @@ export function extract(
 	for (const lang of languages)
 		for (const word of STOP_BY_LANGUAGE[lang] ?? []) stop.add(word);
 
-	const p1 = pass1(sections, exclude, stop);
+	const p1 = pass1(sections, exclude, stop, speechVerbs(languages));
 	const genitives = [...languages].some((l) => GENITIVE_S.has(l))
 		? undoGenitives(p1)
 		: new Map<string, Set<string>>();
@@ -705,7 +795,8 @@ export function extract(
 
 	const kept = new Map<string, Occurrence[]>();
 	for (const [name, occ] of p1.candidates)
-		if (isCharacter(name, occ, p1, tiny)) kept.set(name, occ);
+		if (isCharacter(name, occ, p1, tiny) && !isGroup(name, occ, p1))
+			kept.set(name, occ);
 
 	const groups = merge(kept);
 
@@ -744,6 +835,27 @@ export function extract(
 		// Two sightings is enough for someone the book gives a full name or a
 		// rank; a bare capitalised word needs three before we believe it.
 		if (occ.length < (hasFull || titled ? 2 : 3)) continue;
+
+		// The one rule that asks for evidence *for* a person rather than against
+		// one, and the only thing that separates a cast from a gazetteer. Every
+		// other test here is a way of ruling a candidate out, and a place name
+		// trips none of them: "London", "Bukovina" and "the Slovaks" are
+		// capitalised every time, recur, never appear in lower case and are not
+		// always preceded by "the" — so they walked straight into the cast of
+		// Dracula. What they never do is the three things prose does to a person
+		// and to nothing else: own something ("Mina's"), carry an honorific
+		// ("Count Dracula") or stand next to a speech verb ("said Van Helsing").
+		//
+		// Measured over the whole of Dracula, every real character clears this
+		// and every place, people and language in the book scores exactly zero.
+		// It is asked of the *merged* person, so "Jonathan" is carried by the
+		// possessives on "Jonathan Harker", and it errs towards dropping a walk-on
+		// who is never quoted, never titled and never owns anything — which is
+		// about as close to not being in the book as a character gets.
+		const person = occ.filter((o) => o.person).length;
+		// One neighbour out of fifty is a coincidence; one out of three is all a
+		// minor character is ever going to get.
+		if (person < (occ.length >= 12 ? 2 : 1)) continue;
 
 		const { name, aliases } = displayName(counts, titles, occ.length);
 		// The genitive forms were never candidates of their own, but the reader

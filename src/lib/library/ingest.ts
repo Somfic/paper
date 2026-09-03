@@ -5,12 +5,7 @@
 
 import * as library from "$lib/library";
 import type { Book, BookMetadata } from "$lib/library";
-import { authorName, pickText } from "$lib/reader/foliate";
-
-// Vite refuses to bundle an import() of a file in the public dir, so the
-// specifier goes through a variable to keep it out of static analysis. Same URL
-// as loadFoliate()'s script tag, so the browser reuses the one module instance.
-const VIEW_URL = "/foliate-js/view.js";
+import { authorName, loadFoliate, pickText } from "$lib/reader/foliate";
 
 const ISBN13 = /^97[89]\d{10}$/;
 const ISBN10 = /^\d{9}[\dX]$/;
@@ -77,7 +72,7 @@ async function countWords(sections: any[]): Promise<number> {
  * `library/covers`' job.
  */
 async function parse(file: File): Promise<{ metadata: BookMetadata; cover: Blob | null }> {
-	const { makeBook } = await import(/* @vite-ignore */ VIEW_URL);
+	const { makeBook } = await loadFoliate();
 	const book = await makeBook(file);
 	const meta = book?.metadata ?? {};
 

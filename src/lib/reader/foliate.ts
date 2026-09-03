@@ -33,30 +33,28 @@ export function flattenToc(
 	return out;
 }
 
-// Load foliate-js from /static via a module <script> tag — vite forbids
-// import()-ing files in the public dir. view.js registers <foliate-view> at
-// module top level, so the element exists once the load event fires.
-export function loadFoliate(): Promise<void> {
-	if (customElements.get("foliate-view")) return Promise.resolve();
-	return new Promise((resolve, reject) => {
-		const existing = document.querySelector<HTMLScriptElement>(
-			"script[data-foliate]",
-		);
-		if (existing) {
-			existing.addEventListener("load", () => resolve());
-			existing.addEventListener("error", () =>
-				reject(new Error("foliate failed to load")),
-			);
-			return;
-		}
-		const s = document.createElement("script");
-		s.type = "module";
-		s.src = "/foliate-js/view.js";
-		s.dataset.foliate = "";
-		s.addEventListener("load", () => resolve());
-		s.addEventListener("error", () =>
-			reject(new Error("foliate failed to load")),
-		);
-		document.head.append(s);
-	});
+/** Where foliate-js lives — served from /static, never bundled. */
+const VIEW_URL = "/foliate-js/view.js";
+
+/** One promise for the whole app; see `loadFoliate`. */
+let viewModule: Promise<any> | null = null;
+
+/**
+ * Load foliate-js and hand back its module: `makeBook` for anyone parsing a
+ * file of their own, and `<foliate-view>` registered as a side effect of
+ * evaluating it. Imported by URL because vite refuses to bundle the public
+ * dir, the same deal as the footnote handler.
+ *
+ * Memoised, and it has to be. view.js calls `customElements.define` at module
+ * top level, so a second evaluation throws on the duplicate name and the throw
+ * takes every export with it. Loading it once through a <script> tag and again
+ * through `import()` of the same path was exactly that — two evaluations,
+ * because vite's dev server serves the imported copy from a second URL
+ * (`view.js?import`). It cost the reader nothing visible, since the element
+ * was already registered by then, and killed both things that parse a book on
+ * their own: the metadata ingest and the character scan.
+ */
+export function loadFoliate(): Promise<any> {
+	viewModule ??= import(/* @vite-ignore */ VIEW_URL);
+	return viewModule;
 }

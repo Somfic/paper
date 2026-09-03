@@ -10,7 +10,7 @@
 // by comparing DOM ranges, not offsets. See `CharacterController`.
 
 /** Bumped when the extraction heuristics change, which invalidates the cache. */
-export const INDEX_VERSION = 3;
+export const INDEX_VERSION = 4;
 
 /** Below this a section is a title page or a dedication, not story. */
 export const MIN_SECTION_WORDS = 250;
