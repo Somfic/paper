@@ -58,7 +58,21 @@ export function contentCSS(s: Settings): string {
 			font-size: ${s.fontSize}% !important;
 		}
 		body { background-color: ${t.bg} !important; color: ${t.fg} !important; }
-		p, li, blockquote, dd, div, span { color: inherit; }
+		/* Books set their own ink, and a book that sets black text is unreadable
+		   on a dark page. A plain "inherit" lost to almost all of it: a rule of
+		   equal specificity in the book's own stylesheet wins on order, and the
+		   inline style="color:#000" that most EPUBs carry wins over any
+		   stylesheet at all. Only !important takes the ink back, and it has to
+		   name the containers too — a colour set on a wrapping section is
+		   inherited by every paragraph inside it, so overriding the paragraph
+		   alone is not enough. Links get their colour back below, on a more
+		   specific selector than this one.
+		   (No backticks in here: this whole stylesheet is a template literal.) */
+		p, li, blockquote, dd, dt, div, span, em, strong, i, b, small, sub, sup,
+		h1, h2, h3, h4, h5, h6, td, th, caption, figcaption, pre, code,
+		section, article, main, aside, header, footer, figure, hgroup {
+			color: inherit !important;
+		}
 		p, li, blockquote, dd {
 			line-height: ${s.lineHeight} !important;
 			text-align: ${s.justify ? "justify" : "start"} !important;
