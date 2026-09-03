@@ -20,18 +20,27 @@ export type SpineArt = {
 
 // ── thickness ──────────────────────────────────────────────────
 
-const MIN_PX = 26; // a title still reads at this width, and it's still a target
-const MAX_PX = 78;
+/**
+ * How big a book stands. Every dimension of the shelf is a multiple of this —
+ * thickness, height, the type set on the spine, and the boards and end panels,
+ * which read it off `--scale` — so the whole case resizes from one number and
+ * keeps its proportions, type included.
+ */
+export const SCALE = 1.4;
+const scaled = (v: number) => Math.round(v * SCALE);
+
+const MIN_PX = scaled(26); // a title still reads at this width, and it's still a target
+const MAX_PX = scaled(78);
 /** Not ingested yet, or ingest failed: an unremarkable mid-list thickness. */
-const UNKNOWN_PX = 34;
+const UNKNOWN_PX = scaled(34);
 const NOVELLA_WORDS = 30_000;
-const NOVELLA_PX = 27;
+const NOVELLA_PX = scaled(27);
 /**
  * A real spine is linear in leaves, so a 400k omnibus is thirteen times a 30k
  * novella — at a width where the novella's title is still legible that puts the
- * omnibus past 300px, which is a wall, not a book. Compressing the range with a
- * 0.4 exponent keeps the two obviously different (27px against 76px) while both
- * stay on the same shelf.
+ * omnibus more than four times as wide as the shelf is tall, which is a wall,
+ * not a book. Compressing the range with a 0.4 exponent keeps the two obviously
+ * different — roughly MIN_PX against MAX_PX — while both stay on the same shelf.
  */
 const COMPRESSION = 0.4;
 
@@ -44,7 +53,7 @@ export function spineWidth(book: Book): number {
 
 // Pocket editions, trade paperbacks and hardbacks aren't the same height, and a
 // shelf where every top edge lines up reads as a bar chart rather than as books.
-const HEIGHTS = [174, 183, 191, 199, 207];
+const HEIGHTS = [174, 183, 191, 199, 207].map(scaled);
 
 /** The tallest book, so every shelf row can be the same height. */
 export const BOOK_HEIGHT = HEIGHTS[HEIGHTS.length - 1];
@@ -52,6 +61,48 @@ export const BOOK_HEIGHT = HEIGHTS[HEIGHTS.length - 1];
 export function spineHeight(book: Book): number {
 	return HEIGHTS[hash(book.title) % HEIGHTS.length];
 }
+
+// ── the tilt ───────────────────────────────────────────────────
+
+/** The jacket's width against the spine's height — the usual 2:3 trim. */
+export const FACE_RATIO = 0.66;
+/** How far the book comes towards the viewer as it is drawn out, in px. */
+export const TILT_Z = scaled(80);
+/** And how far it is turned, in degrees. */
+export const TILT_ANGLE = 54;
+/**
+ * The turn eases past its resting angle before settling, the way a book you
+ * have swung open rocks back a little. The clearance has to cover the far end
+ * of that, not the angle it comes to rest at.
+ */
+export const TILT_PEAK = 1.05;
+export const PERSPECTIVE = scaled(1200);
+
+/**
+ * How far right of its own spine a book reaches once it has swung open: the
+ * hinged jacket turned into the light, then magnified by the perspective of
+ * having come TILT_Z nearer. Worked out rather than guessed at, because the
+ * shelf has to keep exactly this much clear at the end of a row — the last book
+ * on a board has no neighbour's airspace to open into, only the end panel, and
+ * anything short of this crops its cover down the middle.
+ */
+function swingReach(width: number, height: number): number {
+	const face = Math.round(height * FACE_RATIO);
+	const angle = (TILT_ANGLE * TILT_PEAK * Math.PI) / 180;
+	// The jacket's outer edge, hinged at the spine's right edge and folded back
+	// into the shelf, carried round by the book's own turn.
+	const x = width * Math.cos(angle) + face * Math.sin(angle);
+	const z = width * Math.sin(angle) - face * Math.cos(angle) + TILT_Z;
+	// Perspective is per-book and centred on it, so it magnifies about the spine.
+	const eye = width / 2;
+	return Math.ceil(eye + (x - eye) * (PERSPECTIVE / (PERSPECTIVE - z)) - width);
+}
+
+/**
+ * The worst case of the above: a thin, tall book, whose jacket is both the
+ * widest and the least covered by the spine it swings out from.
+ */
+export const SWING = swingReach(MIN_PX, HEIGHTS[HEIGHTS.length - 1]);
 
 /** FNV-1a — a book's height and fallback colour have to survive a reload. */
 function hash(s: string): number {
@@ -386,28 +437,29 @@ export type SpineType = {
 	size: number;
 };
 
-const PAD = 13; // head and tail margins, in px
-const GAP = 12; // between the title and the author
+export const PAD = scaled(13); // head and tail margins, in px
+export const GAP = scaled(12); // between the title and the author
 /** A measured run within a few px of the room it has is a run that collides. */
-const SLACK = 5;
+const SLACK = scaled(5);
 /**
  * The imprint is stamped across the foot rather than along the spine, the way
  * most publishers set theirs, which is why it costs 20px of length and not the
  * 50-odd that its own name set vertically would.
  */
-const MARK = 20;
-const MARK_SIZE = 6;
+const MARK = scaled(20);
+export const MARK_SIZE = 6 * SCALE;
 /** The imprint isn't worth setting the title smaller than this to keep. */
-const MARK_MIN_TITLE = 11;
-const AUTHOR_MIN_PX = 32; // below this the author is noise, not information
+const MARK_MIN_TITLE = 11 * SCALE;
+const AUTHOR_MIN_PX = scaled(32); // below this the author is noise, not information
 /** Shrinking the title past this to keep a byline is a bad trade. */
-const AUTHOR_FLOOR = 10;
-const MARK_MIN_PX = 34;
+const AUTHOR_FLOOR = 10 * SCALE;
+const MARK_MIN_PX = scaled(34);
 /** Steps to try, largest first. The floor is where a spine stops being read. */
-const SIZES = [14, 13, 12, 11, 10, 9, 8];
+const SIZES = [14, 13, 12, 11, 10, 9, 8].map((s) => s * SCALE);
 
-// These have to stay in step with BookSpine's stylesheet, since that is what
-// the measurements below are predicting.
+// BookSpine sets its padding, its gap and its imprint off the exports above and
+// scales the rest by `--scale`, so the stylesheet cannot drift away from the
+// measurements taken here.
 const SERIF = 'Georgia, "Iowan Old Style", "Times New Roman", serif';
 const SANS = "ui-sans-serif, system-ui, sans-serif";
 const TITLE_TRACK = 0.09; // em
@@ -416,7 +468,7 @@ const AUTHOR_SCALE = 0.86;
 /** Line box of a run of vertical type, as a multiple of its size. */
 const LEAD = 1.18;
 /** Left over either side of the type across the spine's width. */
-const CROSS_PAD = 6;
+const CROSS_PAD = scaled(6);
 
 // One canvas for the whole shelf. Measuring a string costs microseconds and it
 // beats guessing at the cap width of whichever serif the browser actually has —
@@ -458,7 +510,7 @@ export function spineType(book: Book, width: number, height: number): SpineType 
 	const author = width >= AUTHOR_MIN_PX ? (book.author ?? "").trim() : "";
 
 	// A thick book carries bigger type, the way a thick book does.
-	const cap = Math.min(14, Math.max(10.5, width * 0.34));
+	const cap = Math.min(14 * SCALE, Math.max(10.5 * SCALE, width * 0.34));
 	const steps = SIZES.filter((s) => s <= cap);
 	// Letter-spaced caps for the title, a slightly smaller italic for the author.
 	const titleRun = (size: number) =>
@@ -478,7 +530,8 @@ export function spineType(book: Book, width: number, height: number): SpineType 
 	const wanted = width >= MARK_MIN_PX ? publisherMark(book.publisher) : "";
 	const marks =
 		wanted &&
-		advance(wanted, `700 ${MARK_SIZE}px ${SANS}`, MARK_SIZE, AUTHOR_TRACK) <= width - 8 &&
+		advance(wanted, `700 ${MARK_SIZE}px ${SANS}`, MARK_SIZE, AUTHOR_TRACK) <=
+			width - scaled(8) &&
 		titleRun(MARK_MIN_TITLE) <= height - 2 * PAD - SLACK - MARK
 			? [wanted, ""]
 			: [""];
