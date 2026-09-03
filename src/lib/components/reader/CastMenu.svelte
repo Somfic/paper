@@ -34,10 +34,6 @@
 			/>
 		{/snippet}
 		<div class="panel" role="dialog" aria-label="Cast so far">
-			<p class="lede">
-				Everyone you have met so far — nothing from further on than you
-				have read.
-			</p>
 			{#if cast.length}
 				<ul>
 					{#each cast as member (member.entry)}
