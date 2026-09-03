@@ -32,22 +32,7 @@
 			<DogEar folds={reader.folds} />
 			{#if reader.showSpine}<div class="spine" aria-hidden="true"></div>{/if}
 			{#if settings.shading}
-				<svg
-					class="grain"
-					xmlns="http://www.w3.org/2000/svg"
-					aria-hidden="true"
-				>
-					<filter id="paper-grain">
-						<feTurbulence
-							type="fractalNoise"
-							baseFrequency="0.8"
-							numOctaves="1"
-							stitchTiles="stitch"
-						/>
-						<feColorMatrix type="saturate" values="0" />
-					</filter>
-					<rect width="100%" height="100%" filter="url(#paper-grain)" />
-				</svg>
+				<div class="grain" aria-hidden="true"></div>
 			{/if}
 		</div>
 		{#if reader.showStacks}
@@ -101,15 +86,22 @@
 		overflow: hidden;
 	}
 
-	/* paper grain overlaid on the page (over the iframe text, non-interactive) */
+	/* Paper grain overlaid on the page (over the iframe text, non-interactive).
+
+	   The noise is a 240px tile carried as an image, not a live filter over the
+	   page. Inline, `feTurbulence` is re-evaluated on every repaint of the area
+	   it covers — fractal noise per pixel across the whole sheet, several million
+	   of them on a retina display — and the reader repaints that area constantly:
+	   every page turn, every character underline, every 200ms colour transition.
+	   As an image the browser rasterises 240x240 once and tiles it, and
+	   `stitchTiles` is what makes the seams invisible. */
 	.grain {
 		position: absolute;
 		inset: 0;
-		width: 100%;
-		height: 100%;
 		z-index: 4;
 		pointer-events: none;
 		opacity: 0.2;
+		background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23g)'/></svg>");
 	}
 
 	/* center spine / gutter shadow of an open book */

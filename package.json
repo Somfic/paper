@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite dev --port 5174",
     "build": "vite build",
+    "catalog": "bun run scripts/catalog.ts",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"

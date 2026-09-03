@@ -169,6 +169,7 @@ export class CharacterController {
 	#cut = 0;
 	#applied = new Set<string>();
 	#appliedIndex = -1;
+	#appliedColour = "";
 	#bookId = 0;
 	#hoverHit = -1;
 	#hoverTimer = 0;
@@ -552,12 +553,21 @@ export class CharacterController {
 			?.find((c: any) => c.index === live.index);
 		const overlayer = content?.overlayer;
 		if (!overlayer) return;
-		if (this.#appliedIndex !== live.index) {
-			this.#applied.clear();
-			this.#appliedIndex = live.index;
-		}
 		const reveal = this.reveal;
 		const color = this.#reader?.theme.link ?? "currentColor";
+		if (this.#appliedIndex !== live.index) {
+			// A different section: its overlayer went with it, nothing to remove.
+			this.#applied.clear();
+			this.#appliedIndex = live.index;
+		} else if (this.#appliedColour !== color) {
+			// The theme changed under a section that is already underlined. The
+			// colour is baked into each mark when it is drawn, so they have to come
+			// off and go back on — otherwise the cast stays underlined in the old
+			// theme's link colour until you turn the page.
+			for (const key of this.#applied) overlayer.remove(key);
+			this.#applied.clear();
+		}
+		this.#appliedColour = color;
 
 		const want = new Set<string>();
 		live.hits.forEach((hit, k) => {

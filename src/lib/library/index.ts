@@ -25,6 +25,12 @@ export type Book = {
 	/** Whether `covers` holds art for this id — embedded or fetched. */
 	has_cover?: boolean;
 	/**
+	 * Where the file came from, when it wasn't your own upload — currently only
+	 * `standardebooks:<slug>`, written by `library/catalog`. Absent on an
+	 * uploaded book, which is what makes it a usable "already imported" test.
+	 */
+	source?: string;
+	/**
 	 * ISO-8601 of the last ingest attempt. Absent means never parsed, which is
 	 * what the shelf's backfill looks for; it is stamped even when parsing
 	 * fails, so a broken file isn't retried on every load.
@@ -144,8 +150,20 @@ export async function file(id: number): Promise<File> {
 	return new File([blob], book.original_filename, { type: blob.type });
 }
 
-/** Store an uploaded file and return its shelf entry. */
-export async function add(upload: File): Promise<Book> {
+/**
+ * Store a file and return its shelf entry.
+ *
+ * `seed` is for a file paper fetched rather than one you picked, where the
+ * catalogue it came from already knew the title and author — see
+ * `library/catalog`. It beats the filename immediately and, because ingesting
+ * is allowed to fail exactly once and never retry, it is also what the book
+ * falls back to forever if the parse never works. Without it a book whose parse
+ * failed would show its filename for good.
+ */
+export async function add(
+	upload: File,
+	seed?: Pick<Book, "title" | "author" | "source">,
+): Promise<Book> {
 	const db = await openDb();
 	const name = upload.name;
 	const dot = name.lastIndexOf(".");
@@ -159,6 +177,9 @@ export async function add(upload: File): Promise<Book> {
 		original_filename: name,
 		format,
 		added_at: new Date().toISOString(),
+		// Only the fields that carry something: an empty author is worse than no
+		// author at all, since it would render as a byline with nothing in it.
+		...Object.fromEntries(Object.entries(seed ?? {}).filter(([, v]) => v)),
 	};
 
 	const tx = db.transaction([BOOKS, FILES], "readwrite");

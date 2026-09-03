@@ -23,6 +23,13 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      # Walks standardebooks.org for the browse panel's catalogue. Allowed to
+      # fail: the committed static/catalog.json is a working catalogue, just an
+      # older one, and a deploy is not worth blocking on someone else's uptime.
+      - name: Refresh catalogue
+        continue-on-error: true
+        run: bun run catalog
+
       - name: Build
         run: bun run build
 

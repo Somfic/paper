@@ -60,6 +60,24 @@ export class ReaderSettings {
 		Object.assign(this, loadSettings());
 	}
 
+	/**
+	 * The fields the renderer actually consumes: everything `contentCSS()` sets,
+	 * plus the two that decide the column layout. Anything watching the renderer
+	 * has to read this rather than `value`, because re-applying the renderer
+	 * re-paginates the whole book — work that a paper-grain toggle or a nudge of
+	 * the pacer's target speed has no reason to be paying for.
+	 */
+	get layout() {
+		return {
+			theme: this.theme,
+			fontSize: this.fontSize,
+			lineHeight: this.lineHeight,
+			justify: this.justify,
+			flow: this.flow,
+			singleColumn: this.singleColumn,
+		};
+	}
+
 	/** Plain object snapshot — handy for `contentCSS()` and persistence. */
 	get value(): Settings {
 		return {

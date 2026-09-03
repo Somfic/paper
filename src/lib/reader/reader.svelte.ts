@@ -1,3 +1,4 @@
+import { untrack } from "svelte";
 import type { PopoverMenuEntry } from "glow";
 import * as library from "$lib/library";
 import { posKey, type Book } from "$lib/library";
@@ -155,9 +156,17 @@ export class ReaderController {
 		this.#rendererDispose?.();
 		this.#rendererDispose = $effect.root(() => {
 			$effect(() => {
-				// touch the settings that affect layout so this re-runs on change
-				this.#settings.value;
-				if (this.ready) this.applyRenderer();
+				// Exactly the settings the renderer consumes, and nothing else:
+				// applyRenderer re-paginates the book, so a dependency on the whole
+				// snapshot meant toggling the paper grain or stepping the pacer's
+				// wpm re-laid out every section for no visible reason.
+				this.#settings.layout;
+				const ready = this.ready;
+				// applyRenderer reads .value for contentCSS; untracked, or it would
+				// subscribe this effect right back to the fields just excluded.
+				untrack(() => {
+					if (ready) this.applyRenderer();
+				});
 			});
 		});
 		return () => {

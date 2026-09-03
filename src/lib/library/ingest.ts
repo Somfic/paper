@@ -47,12 +47,6 @@ function pickIsbn(metadata: any): string {
 	return "";
 }
 
-/** The filename without its extension — the fallback when metadata is empty. */
-function filenameStem(filename: string): string {
-	const dot = filename.lastIndexOf(".");
-	return (dot > 0 ? filename.slice(0, dot) : filename).trim();
-}
-
 /**
  * Total words across the linear spine. Every section is parsed to a document,
  * so the loop hands control back between sections rather than holding the main
@@ -87,9 +81,12 @@ async function parse(file: File): Promise<{ metadata: BookMetadata; cover: Blob 
 	const book = await makeBook(file);
 	const meta = book?.metadata ?? {};
 
-	// Some epubs ship a title that is worse than the filename, but an *empty*
-	// one is always worse — fall back to the stem rather than showing nothing.
-	const title = pickText(meta.title).trim() || filenameStem(file.name);
+	// Left empty when the epub has none, rather than filled with the filename:
+	// what a book already has is at worst its filename anyway (`library.add`
+	// puts the stem there) and at best the title the catalogue it came from knew,
+	// which a stem would be a downgrade from. `ingest` drops the empty fields
+	// instead of writing them, so the better answer survives either way.
+	const title = pickText(meta.title).trim();
 
 	// An epub whose manifest names a cover it no longer contains still answers
 	// getCover(), with a few bytes of nothing — check before believing it.
@@ -113,6 +110,19 @@ async function parse(file: File): Promise<{ metadata: BookMetadata; cover: Blob 
 const inFlight = new Set<number>();
 
 /**
+ * The fields the epub actually answered for. An empty string means the file had
+ * nothing to say on the subject, and saying nothing must not overwrite what the
+ * book already had — a title and author seeded from a catalogue, or the
+ * filename. Numbers are kept as they are: a word count of zero is a fact about
+ * a book with no words in it.
+ */
+function answered(metadata: BookMetadata): Partial<BookMetadata> {
+	return Object.fromEntries(
+		Object.entries(metadata).filter(([, v]) => v !== "" && v != null),
+	);
+}
+
+/**
  * Parse the stored file for `id` and fold the result into its shelf entry.
  * `ingested_at` is stamped even when parsing throws: a file we can't read won't
  * become readable on the next load, and retrying it forever would reparse the
@@ -122,7 +132,10 @@ export async function ingest(id: number): Promise<Book> {
 	try {
 		const { metadata, cover } = await parse(await library.file(id));
 		if (cover) await library.putCover(id, cover);
-		return await library.update(id, { ...metadata, ingested_at: new Date().toISOString() });
+		return await library.update(id, {
+			...answered(metadata),
+			ingested_at: new Date().toISOString(),
+		});
 	} catch (e) {
 		console.warn(`paper: could not ingest book ${id}`, e);
 		return library.update(id, { ingested_at: new Date().toISOString() });

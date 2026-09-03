@@ -5,10 +5,12 @@
 	import type { Book } from "$lib/library";
 	import { backfill, needsIngest } from "$lib/library/ingest";
 	import Bookshelf from "$lib/components/shelf/Bookshelf.svelte";
+	import BrowseBooks from "$lib/components/shelf/BrowseBooks.svelte";
 
 	let books = $state<Book[]>([]);
 	let loading = $state(true);
 	let adding = $state(false);
+	let browsing = $state(false);
 	let ingesting = $state(0);
 	let error = $state<string | null>(null);
 	let fileInput: HTMLInputElement;
@@ -68,6 +70,18 @@
 		void runBackfill();
 	}
 
+	/**
+	 * A book from the catalogue, reported twice: once on landing, already titled
+	 * from the catalogue, and once more when the parse has added its jacket and
+	 * its length. The second call is an update of the first, not a second book,
+	 * so it replaces by id rather than prepending again.
+	 */
+	function onImported(book: Book) {
+		books = books.some((b) => b.id === book.id)
+			? books.map((b) => (b.id === book.id ? book : b))
+			: [book, ...books];
+	}
+
 	async function remove(id: number) {
 		try {
 			await library.remove(id);
@@ -81,6 +95,12 @@
 <div class="page">
 	<header>
 		<h1>📖 paper</h1>
+		<Button
+			variant="outlined"
+			icon="Library"
+			label="Browse"
+			onclick={() => { browsing = true; }}
+		/>
 		<Button
 			icon="Plus"
 			label={adding ? "adding…" : "Add book"}
@@ -108,9 +128,14 @@
 		<div class="empty">
 			<p>Your shelf is empty.</p>
 			<Button
-				variant="outlined"
+				icon="Library"
+				label="Pick a book to start with"
+				onclick={() => { browsing = true; }}
+			/>
+			<Button
+				variant="ghost"
 				icon="BookOpen"
-				label="Add an .epub to get started"
+				label="…or add an .epub of your own"
 				onclick={() => fileInput.click()}
 			/>
 		</div>
@@ -121,6 +146,8 @@
 		<Bookshelf {books} onDelete={remove} />
 	{/if}
 </div>
+
+<BrowseBooks bind:open={browsing} shelf={books} {onImported} />
 
 <style>
 	.page {
