@@ -1,26 +1,26 @@
 <script lang="ts">
-	// glow's theme tokens + base styles. Components (`import { Button } from
-	// "glow"`) are used across the app — see the reader header and the shelf page.
-	import "glow/styles";
+  import { Root } from "glow";
 
-	let { children } = $props();
+  let { children } = $props();
 </script>
 
 <div class="app">
-	<main>
-		{@render children()}
-	</main>
+  <Root>
+    <main>
+      {@render children()}
+    </main>
+  </Root>
 </div>
 
 <style>
-	.app {
-		display: flex;
-		flex-direction: column;
-		min-height: 100vh;
-	}
+  .app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
 
-	main {
-		flex: 1;
-		min-height: 0;
-	}
+  main {
+    flex: 1;
+    min-height: 0;
+  }
 </style>
