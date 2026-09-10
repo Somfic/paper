@@ -2,6 +2,54 @@
 	"source": "standardebooks.org",
 	"books": [
 		{
+			"slug": "thomas-mann/short-fiction/various-translators",
+			"title": "Short Fiction",
+			"authors": [
+				"Thomas Mann"
+			],
+			"cover": "cb6b8097af47a431e7218e928190e49d1b2e3746"
+		},
+		{
+			"slug": "c-h-spurgeon/the-art-of-illustration",
+			"title": "The Art of Illustration",
+			"authors": [
+				"C. H. Spurgeon"
+			],
+			"cover": "4cb010ef3e14ac3ae0744a9d4b06dee2d6992d81"
+		},
+		{
+			"slug": "george-macdonald/within-and-without",
+			"title": "Within and Without",
+			"authors": [
+				"George MacDonald"
+			],
+			"cover": "abb22b8af3e62d0a80eb70f510d29330c436bd34"
+		},
+		{
+			"slug": "h-c-mcneile/the-final-count",
+			"title": "The Final Count",
+			"authors": [
+				"H. C. McNeile"
+			],
+			"cover": "f4b14b61c7ac7e9a14a404a50d688ba2ec451d1a"
+		},
+		{
+			"slug": "theodore-roosevelt/a-book-lovers-holidays-in-the-open",
+			"title": "A Book-Lover’s Holidays in the Open",
+			"authors": [
+				"Theodore Roosevelt"
+			],
+			"cover": "e33ef8cf0d083669acdc41bbf9de8c762acbdbb9"
+		},
+		{
+			"slug": "arthur-conan-doyle/brigadier-gerard-stories",
+			"title": "Brigadier Gerard Stories",
+			"authors": [
+				"Arthur Conan Doyle"
+			],
+			"cover": "e2107a97c06b430333019e509b9ff3b5c69ca03a"
+		},
+		{
 			"slug": "dorothy-m-richardson/the-trap",
 			"title": "The Trap",
 			"authors": [
@@ -8864,14 +8912,6 @@
 				"Harriet E. Wilson"
 			],
 			"cover": "3d9508ac410d901678c051409a9bcb7042a9ebf0"
-		},
-		{
-			"slug": "thomas-mann/bashan-and-i/herman-george-scheffauer",
-			"title": "Bashan and I",
-			"authors": [
-				"Thomas Mann"
-			],
-			"cover": "498a3394bdc868d743e1f3edf5b14822ab609004"
 		},
 		{
 			"slug": "james-stephens/irish-fairy-tales",
