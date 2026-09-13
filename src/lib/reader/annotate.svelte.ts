@@ -1,11 +1,6 @@
 import * as library from "$lib/library";
 import type { ReaderController } from "./reader.svelte";
 
-
-/** Draw options for an annotation. `color` is all `Overlayer.highlight`
- *  uses today; `width` is here for ink's stroke thickness — unused by
- *  highlights, but the shape a future ink draw function would expect. */
-
 export enum AnnotationKind {
   highlight,
   ink
@@ -16,13 +11,17 @@ export type AnnotationOption = {
   color: string,
   width?: number,
 }
+
+export type Vec2 = { x: number, y: number }
+
 // NOTE: subject to change based on later implementation of freehand ink support
 export type Annotation = {
   id: number,
   bookId: number,
   kind: AnnotationKind, // magari piu nel futuro
   index: number,
-  value: string, // Note this is a CFI string
+  value: string, // Always a CFI string — for ink this anchors the stroke's origin point
+  points: Vec2[] | null, // ink only: stroke points, relative to the anchor's bounding rect
   createdAt: Date
   option: AnnotationOption
 }
@@ -98,6 +97,21 @@ export class AnnotationController {
   }
 
 
+  #getRange(doc: Document, x: number, y: number): Range | null {
+    // if (document.caretRangeFromPoint) {
+    //   return document.caretRangeFromPoint(x, y);
+    // }
+    const carePosition = doc.caretPositionFromPoint(x, y);
+
+    if (carePosition) {
+      const range = doc.createRange();
+      range.setStart(carePosition.offsetNode, carePosition.offset)
+      range.collapse(true);
+      return range;
+    }
+    return null;
+  }
+
   // ── selection tracking ─────────────────────────────────────────
   // lifted straight from quote.svelte.ts ngl heh heh 
   observe(doc: Document, index: number) {
@@ -105,6 +119,9 @@ export class AnnotationController {
     let svg: SVGElement | null = null;
     let path: string = "";
     let currentPath: SVGPathElement | null = null;
+    let offsets: Vec2[] = [];
+    let anchorRect: Vec2 | null = null;
+    let anchorCfi: string | null = null;
 
     const down = (event: PointerEvent) => {
       if (this.panelOpen && this.option.kind == AnnotationKind.ink) {
@@ -114,9 +131,15 @@ export class AnnotationController {
           ?.find((c: any) => c.index === index);
 
         if (!content?.overlayer) return;
+        const range = this.#getRange(doc, event.clientX, event.clientY)
 
+        const rect = range?.getBoundingClientRect();
+        if (!rect) return;
+        anchorRect = { x: rect.x, y: rect.y };
+        anchorCfi = this.#reader.view.getCFI(index, range);
         svg = content.overlayer.element;
         path = "";
+        offsets = [];
         currentPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
         currentPath.setAttribute("fill", "none");
         currentPath.setAttribute("stroke", this.option.color);
@@ -128,6 +151,8 @@ export class AnnotationController {
     const move = (event: PointerEvent) => {
       if (this.panelOpen && this.option.kind == AnnotationKind.ink && this.#penDown) {
         path += `${path.length == 0 ? 'M' : 'L'} ${event.clientX} ${event.clientY}`;
+        if (!anchorRect) return;
+        offsets.push({ x: event.clientX - anchorRect.x, y: event.clientY - anchorRect.y })
         currentPath?.setAttribute("d", path);
       }
     }
@@ -142,6 +167,7 @@ export class AnnotationController {
           const draft: Omit<Annotation, "id"> = {
             index,
             value: cfi,
+            points: null,
             bookId: this.#bookId,
             kind: AnnotationKind.highlight,
             option: { ...this.option },
@@ -165,10 +191,28 @@ export class AnnotationController {
           console.log(`Annotations: annotation was added ${annotationId} and draw succesfully`)
         }
       } else if (this.option.kind === AnnotationKind.ink) {
+        if (anchorCfi && offsets.length > 0) {
+          const draft: Omit<Annotation, "id"> = {
+            index,
+            value: anchorCfi,
+            points: offsets,
+            bookId: this.#bookId,
+            kind: AnnotationKind.ink,
+            option: { ...this.option },
+            createdAt: new Date()
+          }
+
+          const annotationId = await library.putAnnotation(draft);
+          this.annotations.push({ id: annotationId, ...draft });
+          this.sessionIds.push(annotationId);
+        }
 
         path = "";
         svg = null;
-
+        currentPath = null;
+        offsets = [];
+        anchorRect = null;
+        anchorCfi = null;
       }
 
     };
@@ -217,14 +261,14 @@ export class AnnotationController {
       return;
     }
 
-    for (let { id, value, option, kind } of this.annotations) {
+    for (let { id, value, option, kind, points } of this.annotations) {
 
       switch (kind) {
         case AnnotationKind.highlight:
           this.#drawHighlight(view, id, value, option)
           break;
         case AnnotationKind.ink:
-          this.#drawInk(view, id, value, option)
+          this.#drawInk(view, id, value, option, points)
           break;
         default:
           console.warn("Annotations: Non e sucesso un cazzo")
@@ -245,11 +289,31 @@ export class AnnotationController {
     content.overlayer.add(id.toString(), range, this.#overlayer.highlight, option)
   }
 
-  #drawInk(view: any, id: number, cfi: string, option: AnnotationOption) {
+  #drawInk(view: any, id: number, cfi: string, option: AnnotationOption, points: Vec2[] | null) {
+    if (!points || points.length === 0) return;
 
+    const { index, anchor } = view.resolveCFI(cfi);
+
+    const content = view.renderer
+      ?.getContents()
+      ?.find((c: any) => c.index === index);
+
+    if (!content?.overlayer) return;
+
+    const range = anchor(content.doc);
+    const rect = range.getBoundingClientRect();
+
+    const d = points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
+      .join(' ');
+
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    el.setAttribute("fill", "none");
+    el.setAttribute("stroke", option.color);
+    el.setAttribute("stroke-width", String(option.width ?? 3));
+    el.setAttribute("d", d);
+    content.overlayer.element.appendChild(el);
   }
-
-  // NOT DONE YET
 
   #eraseDrawing(cfi: string, id: number) {
     const view = this.#reader?.view;
