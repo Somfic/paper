@@ -96,8 +96,8 @@ export class AnnotationController {
     }
   }
 
-
-  #getRange(doc: Document, x: number, y: number): Range | null {
+  // Given cursor pos finds range of closest element to anchor from
+  #getRange(doc: Document, x: number, y: number): Range | undefined {
     // if (document.caretRangeFromPoint) {
     //   return document.caretRangeFromPoint(x, y);
     // }
@@ -109,7 +109,14 @@ export class AnnotationController {
       range.collapse(true);
       return range;
     }
-    return null;
+    return undefined;
+  }
+  // it returns the book content or the iframe
+  #getContent(view: any, index: number): any {
+    return view.renderer
+      ?.getContents()
+      ?.find((c: any) => c.index === index);
+
   }
 
   // ── selection tracking ─────────────────────────────────────────
@@ -117,105 +124,87 @@ export class AnnotationController {
   observe(doc: Document, index: number) {
     if (this.#docs.has(doc)) return;
     let svg: SVGElement | null = null;
-    let path: string = "";
     let currentPath: SVGPathElement | null = null;
     let offsets: Vec2[] = [];
     let anchorRect: Vec2 | null = null;
-    let anchorCfi: string | null = null;
+    let range: Range | undefined;
 
     const down = (event: PointerEvent) => {
       if (this.panelOpen && this.option.kind == AnnotationKind.ink) {
         this.#penDown = true;
-        const content = this.#reader.view.renderer
-          ?.getContents()
-          ?.find((c: any) => c.index === index);
 
-        if (!content?.overlayer) return;
-        const range = this.#getRange(doc, event.clientX, event.clientY)
-
+        range = this.#getRange(doc, event.clientX, event.clientY)
         const rect = range?.getBoundingClientRect();
+
         if (!rect) return;
+
         anchorRect = { x: rect.x, y: rect.y };
-        anchorCfi = this.#reader.view.getCFI(index, range);
+        const content = this.#getContent(this.#reader.view, index);
+
         svg = content.overlayer.element;
-        path = "";
-        offsets = [];
-        currentPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        currentPath.setAttribute("fill", "none");
-        currentPath.setAttribute("stroke", this.option.color);
-        currentPath.setAttribute("stroke-width", String(this.option.width ?? 3));
+        currentPath = this.#createPathElement(this.option)
         svg?.appendChild(currentPath);
       }
-
     }
+
     const move = (event: PointerEvent) => {
       if (this.panelOpen && this.option.kind == AnnotationKind.ink && this.#penDown) {
-        path += `${path.length == 0 ? 'M' : 'L'} ${event.clientX} ${event.clientY}`;
         if (!anchorRect) return;
+        const currentD = currentPath?.getAttribute('d') || '';
+        const command = currentD === '' ? 'M' : 'L';
+
+        if (!currentPath) return;
+
+        currentPath.setAttribute('d', `${currentD}${command} ${event.clientX} ${event.clientY}`);
         offsets.push({ x: event.clientX - anchorRect.x, y: event.clientY - anchorRect.y })
-        currentPath?.setAttribute("d", path);
       }
     }
+
     const up = async () => {
       this.#penDown = false;
-      if (this.erasing) return;
-      if (this.option.kind === AnnotationKind.highlight) {
-        const sel = doc.getSelection();
-        if (sel && this.panelOpen && sel.toString().length > 0) {
-          const cfi = this.#reader.view.getCFI(index, sel.getRangeAt(0))
+      if (this.erasing || !this.panelOpen) return;
 
-          const draft: Omit<Annotation, "id"> = {
-            index,
-            value: cfi,
-            points: null,
-            bookId: this.#bookId,
-            kind: AnnotationKind.highlight,
-            option: { ...this.option },
-            createdAt: new Date()
-          }
+      const view = this.#reader?.view;
 
-          // NOTE: high chance this isn't in the best order
-          // added to db up here
-          const annotationId = await library.putAnnotation(draft);
-          this.annotations.push({ id: annotationId, ...draft });
-          this.sessionIds.push(annotationId);
-
-          const view = this.#reader?.view;
-
-          if (!view) {
-            console.warn("Annotations: failed drawing annotation but was saved to ")
-            return;
-          }
-
-          this.#drawHighlight(view, annotationId, cfi, this.option);
-          console.log(`Annotations: annotation was added ${annotationId} and draw succesfully`)
-        }
-      } else if (this.option.kind === AnnotationKind.ink) {
-        if (anchorCfi && offsets.length > 0) {
-          const draft: Omit<Annotation, "id"> = {
-            index,
-            value: anchorCfi,
-            points: offsets,
-            bookId: this.#bookId,
-            kind: AnnotationKind.ink,
-            option: { ...this.option },
-            createdAt: new Date()
-          }
-
-          const annotationId = await library.putAnnotation(draft);
-          this.annotations.push({ id: annotationId, ...draft });
-          this.sessionIds.push(annotationId);
-        }
-
-        path = "";
-        svg = null;
-        currentPath = null;
-        offsets = [];
-        anchorRect = null;
-        anchorCfi = null;
+      if (!view) {
+        console.warn("Annotations: failed drawing annotation but was saved to ")
+        return;
       }
 
-    };
+      if (this.option.kind === AnnotationKind.highlight) {
+        const sel = doc.getSelection();
+        if (!sel || sel.toString().length === 0 || sel.rangeCount === 0) return;
+        range = sel.getRangeAt(0);
+      } else if (this.option.kind === AnnotationKind.ink) {
+        if (!range || offsets.length === 0) return;
+      }
+
+      const cfi = view.getCFI(index, range)
+      const draft: Omit<Annotation, "id"> = {
+        index,
+        value: cfi,
+        points: this.option.kind === AnnotationKind.ink ? offsets : null,
+        bookId: this.#bookId,
+        kind: this.option.kind,
+        option: { ...this.option },
+        createdAt: new Date()
+      }
+
+      const annotationId = await library.putAnnotation(draft);
+      this.annotations.push({ id: annotationId, ...draft });
+      this.sessionIds.push(annotationId);
+
+      if (this.option.kind === AnnotationKind.highlight) this.#drawHighlight(view, annotationId, cfi, this.option);
+      // if (this.option.kind === AnnotationKind.ink) this.#drawInk(view, annotationId, cfi, this.option, points);
+
+      console.log(`Annotations: annotation was added ${annotationId} and draw succesfully`)
+      svg = null;
+      currentPath = null;
+      offsets = [];
+      anchorRect = null;
+    }
+
+
 
     doc.addEventListener("pointerdown", down);
     doc.addEventListener("pointermove", move);
@@ -279,29 +268,29 @@ export class AnnotationController {
   #drawHighlight(view: any, id: number, cfi: string, option: AnnotationOption) {
     const { index, anchor } = view.resolveCFI(cfi);
 
-    const content = view.renderer
-      ?.getContents()
-      ?.find((c: any) => c.index === index);
-
+    const content = this.#getContent(view, index);
     if (!content?.overlayer) return;
 
     const range = anchor(content.doc);
     content.overlayer.add(id.toString(), range, this.#overlayer.highlight, option)
   }
 
-  #drawInk(view: any, id: number, cfi: string, option: AnnotationOption, points: Vec2[] | null) {
+  #drawInk(view: any, id: number, cfi: string, options: AnnotationOption, points: Vec2[] | null) {
     if (!points || points.length === 0) return;
 
     const { index, anchor } = view.resolveCFI(cfi);
 
-    const content = view.renderer
-      ?.getContents()
-      ?.find((c: any) => c.index === index);
+    const content = this.#getContent(view, index);
 
     if (!content?.overlayer) return;
 
     const range = anchor(content.doc);
     const rect = range.getBoundingClientRect();
+    const el = this.#createPathElement(options, points, rect)
+    content.overlayer.element.appendChild(el);
+  }
+
+  #createPathElement(options: AnnotationOption, points: Vec2[] = [], rect: Vec2 = { x: 0, y: 0 }): SVGPathElement {
 
     const d = points
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
@@ -309,10 +298,11 @@ export class AnnotationController {
 
     const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
     el.setAttribute("fill", "none");
-    el.setAttribute("stroke", option.color);
-    el.setAttribute("stroke-width", String(option.width ?? 3));
+    el.setAttribute("stroke", options.color);
+    el.setAttribute("stroke-width", String(options.width ?? 3));
     el.setAttribute("d", d);
-    content.overlayer.element.appendChild(el);
+    return el;
+
   }
 
   #eraseDrawing(cfi: string, id: number) {
