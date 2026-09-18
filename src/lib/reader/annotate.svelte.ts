@@ -10,6 +10,7 @@ export type AnnotationOption = {
   kind: AnnotationKind,
   color: string,
   width?: number,
+  points?: Vec2[], // only useful for injecting points into the draw ink system
 }
 
 export type Vec2 = { x: number, y: number }
@@ -21,13 +22,13 @@ export type Annotation = {
   kind: AnnotationKind, // magari piu nel futuro
   index: number,
   value: string, // Always a CFI string — for ink this anchors the stroke's origin point
-  points: Vec2[] | null, // ink only: stroke points, relative to the anchor's bounding rect
+  points: Vec2[] | undefined, // ink only: stroke points, relative to the anchor's bounding rect
   createdAt: Date
   option: AnnotationOption
 }
 
 /** Tolerate a failed read: a book with no annotations yet still opens fine. */
-function loadAnnotations(bookId: number): Promise<Annotation[]> {
+async function loadAnnotations(bookId: number): Promise<Annotation[]> {
   return library.annotations(bookId).catch((e) => {
     console.warn("annotations: failed to load from db - ", e);
     return [];
@@ -42,20 +43,25 @@ const loadOverlayer = (): Promise<any> =>
 
 export class AnnotationController {
   #reader: any = null;
+  #view: any = null;
   #bookId = 0;
   #overlayer = $state<any>(null); // overlayer.js, once it lands offers draw methods
-  #docs = new Map<Document, () => void>();
-  #penDown: boolean = false;
+  #offSection: (() => void) | null = null;
+
   annotations: Annotation[] = [];
   sessionIds: number[] = [];
-
   option = $state<AnnotationOption>({ kind: AnnotationKind.highlight, color: "#ffeb3b" });
-  panelOpen = $state(false);
-  /** A mode, not a "kind" — nothing is being drawn while this is true. */
-  erasing = $state(false);
+  range: Range | undefined;
+
+  // Ink States
+  isInkCapture = $state(false);
+  anchorRect: Vec2 | null = null;
+  offsets: Vec2[] = [];
+  // Highlight States
 
   attach(reader: ReaderController) {
     this.#reader = reader;
+    this.#view = reader?.view;
     if (!reader.book) {
       console.warn("Annotations: book not found");
       return;
@@ -71,168 +77,126 @@ export class AnnotationController {
       })
       .catch((e) => console.warn("annotations unavailable", e));
 
-    // drawing annotations
     this.#reader.view.addEventListener("relocate", this.#onRelocate);
-    // erase mode: tapping an existing mark fires this for free
-    this.#reader.view.addEventListener("show-annotation", this.#onShowAnnotation);
-
-    // Erase mode must not survive the popover closing, however it closes
-    // (Done, click-away, Escape) — a watch on panelOpen covers all of
-    // those uniformly, since we don't get a callback for glow's own
-    // click-away/Escape dismissal, only the bound `open` value changing.
-    const disposeErase = $effect.root(() => {
-      $effect(() => {
-        if (!this.panelOpen) this.erasing = false;
-      });
-    });
 
     return () => {
-      this.#reader.view.removeEventListener?.("relocate", this.#onRelocate);
-      this.#reader.view.removeEventListener?.("show-annotation", this.#onShowAnnotation);
-      disposeErase();
+
+      this.#reader.view.removeEventListener("relocate", this.#onRelocate);
       this.#reader = null;
       this.annotations = [];
       this.sessionIds = [];
     }
+
+
   }
 
-  // Given cursor pos finds range of closest element to anchor from
-  #getRange(doc: Document, x: number, y: number): Range | undefined {
-    // if (document.caretRangeFromPoint) {
-    //   return document.caretRangeFromPoint(x, y);
-    // }
-    const carePosition = doc.caretPositionFromPoint(x, y);
-
-    if (carePosition) {
-      const range = doc.createRange();
-      range.setStart(carePosition.offsetNode, carePosition.offset)
-      range.collapse(true);
-      return range;
-    }
-    return undefined;
-  }
-  // it returns the book content or the iframe
+  // it returns the book content or the iframe that hosts the svg layer "Overlayer"
   #getContent(view: any, index: number): any {
     return view.renderer
       ?.getContents()
       ?.find((c: any) => c.index === index);
-
   }
 
-  // ── selection tracking ─────────────────────────────────────────
-  // lifted straight from quote.svelte.ts ngl heh heh 
-  observe(doc: Document, index: number) {
-    if (this.#docs.has(doc)) return;
-    let svg: SVGElement | null = null;
-    let currentPath: SVGPathElement | null = null;
-    let offsets: Vec2[] = [];
-    let anchorRect: Vec2 | null = null;
-    let range: Range | undefined;
+  async inkSelection(document: Document, index: number, range: Range) {
+    this.offsets = [];
+    this.option.kind = AnnotationKind.ink;
+    document.body.style.userSelect = "none";
 
-    const down = (event: PointerEvent) => {
-      if (this.panelOpen && this.option.kind == AnnotationKind.ink) {
-        this.#penDown = true;
-
-        range = this.#getRange(doc, event.clientX, event.clientY)
-        const rect = range?.getBoundingClientRect();
-
-        if (!rect) return;
-
-        anchorRect = { x: rect.x, y: rect.y };
-        const content = this.#getContent(this.#reader.view, index);
-
-        svg = content.overlayer.element;
-        currentPath = this.#createPathElement(this.option)
-        svg?.appendChild(currentPath);
-      }
-    }
-
-    const move = (event: PointerEvent) => {
-      if (this.panelOpen && this.option.kind == AnnotationKind.ink && this.#penDown) {
-        if (!anchorRect) return;
-        const currentD = currentPath?.getAttribute('d') || '';
-        const command = currentD === '' ? 'M' : 'L';
-
-        if (!currentPath) return;
-
-        currentPath.setAttribute('d', `${currentD}${command} ${event.clientX} ${event.clientY}`);
-        offsets.push({ x: event.clientX - anchorRect.x, y: event.clientY - anchorRect.y })
-      }
-    }
-
-    const up = async () => {
-      this.#penDown = false;
-      if (this.erasing || !this.panelOpen) return;
-
-      const view = this.#reader?.view;
-
-      if (!view) {
-        console.warn("Annotations: failed drawing annotation but was saved to ")
-        return;
-      }
-
-      if (this.option.kind === AnnotationKind.highlight) {
-        const sel = doc.getSelection();
-        if (!sel || sel.toString().length === 0 || sel.rangeCount === 0) return;
-        range = sel.getRangeAt(0);
-      } else if (this.option.kind === AnnotationKind.ink) {
-        if (!range || offsets.length === 0) return;
-      }
-
-      const cfi = view.getCFI(index, range)
-      const draft: Omit<Annotation, "id"> = {
-        index,
-        value: cfi,
-        points: this.option.kind === AnnotationKind.ink ? offsets : null,
-        bookId: this.#bookId,
-        kind: this.option.kind,
-        option: { ...this.option },
-        createdAt: new Date()
-      }
-
-      const annotationId = await library.putAnnotation(draft);
-      this.annotations.push({ id: annotationId, ...draft });
-      this.sessionIds.push(annotationId);
-
-      if (this.option.kind === AnnotationKind.highlight) this.#drawHighlight(view, annotationId, cfi, this.option);
-      // if (this.option.kind === AnnotationKind.ink) this.#drawInk(view, annotationId, cfi, this.option, points);
-
-      console.log(`Annotations: annotation was added ${annotationId} and draw succesfully`)
-      svg = null;
-      currentPath = null;
-      offsets = [];
-      anchorRect = null;
-    }
+    if (!range || range.collapsed) return;
+    const rect = range?.getBoundingClientRect();
 
 
+    console.log(rect);
+    if (!rect) return;
+    this.anchorRect = { x: rect.x, y: rect.y };
 
-    doc.addEventListener("pointerdown", down);
-    doc.addEventListener("pointermove", move);
-    doc.addEventListener("pointerup", up);
-    this.#docs.set(doc, () => {
-      doc.removeEventListener("pointerdown", down);
-      doc.removeEventListener("pointerup", up);
-      doc.removeEventListener("pointermove", move);
-    });
+    console.log(this.#view);
+    await this.inkCapture(document);
 
-  }
-  undo = async () => {
-    const id = this.sessionIds.pop();
-    if (id) await this.#erase(id);
+    if (!this.#view) return;
+    const cfi = this.#view.getCFI(index, range)
+    const option: AnnotationOption = { ...this.option, kind: AnnotationKind.ink, points: this.offsets };
+    const annotationId = await this.insertAnnotationToDB(index, cfi, option)
+    this.#drawInk(this.#view, annotationId, cfi, option)
   }
 
-  /** Erase mode: tapping an existing mark deletes it. `show-annotation`
-   *  already fires with the tapped key for any drawn overlayer entry, so
-   *  there's no hit-testing to write ourselves. */
+  async inkCapture(document: Document): Promise<void> {
+    return new Promise((res, _) => {
+      const cleanup = $effect.root(() => {
+        $effect(() => {
+          if (this.isInkCapture) {
+            document.addEventListener("pointermove", this.handleInkEvent);
+            return () => document.removeEventListener("pointermove", this.handleInkEvent);
+          }
+          else {
+            cleanup();
+            res();
+          }
+        })
+      })
+    })
+  }
+
+  // arrow function to solve weird "this" bug (addEventListener strips the
+  // instance binding off a plain method)
+  handleInkEvent = (event: PointerEvent) => {
+    if (!this.anchorRect) return;
+    // NOTE: ensure points are relayed at equal intervals of distance (maybe time?)
+    if (event.buttons > 0) this.offsets.push({ x: event.clientX - this.anchorRect.x, y: event.clientY - this.anchorRect.y })
+  }
+
+  /** Highlight a settled selection. Takes the range directly — the caller
+   *  (the selection pill) has already validated it's non-empty. */
+  async highlightSelection(index: number, range: Range) {
+    this.option.kind = AnnotationKind.highlight;
+    if (!range || range.collapsed) return;
+
+    if (!this.#view) {
+      console.warn("Annotations: view wasn't received")
+      return;
+    }
+
+    const cfi = this.#view.getCFI(index, range)
+    const option: AnnotationOption = { ...this.option, kind: AnnotationKind.highlight };
+    const annotationId = await this.insertAnnotationToDB(index, cfi, option)
+    this.#drawHighlight(this.#view, annotationId, cfi, option);
+  }
+
+  async insertAnnotationToDB(index: number, cfi: string, option: AnnotationOption) {
+    const points = option.kind === AnnotationKind.ink ? this.offsets : undefined;
+    const draft: Omit<Annotation, "id"> = {
+      index,
+      value: cfi,
+      points,
+      bookId: this.#bookId,
+      kind: option.kind,
+      option: { ...option, points },
+      createdAt: new Date()
+    }
+
+    const annotationId = await library.putAnnotation(draft);
+
+    console.log(annotationId);
+
+    this.annotations.push({ id: annotationId, ...draft });
+    this.sessionIds.push(annotationId);
+
+    console.log(draft);
+
+    return annotationId;
+  }
+
+  /** 
+   * User needs to know visually when an ink annotation is anchored to a specific bit of text.
+   * This information can be relayed to the user by potentially altering every text anchor for "ink" annotations
+   * */
   #onShowAnnotation = async (e: any) => {
-    if (!this.erasing) return;
-    const id = Number(e.detail?.value);
-    if (!Number.isNaN(id)) await this.#erase(id);
+
   }
 
   /** The one place undo and the eraser both end up: drop the row from the
    *  db, drop it from the in-memory list, take its mark off the page. */
-  async #erase(id: number) {
+  async #removeAnnotation(id: number) {
     const index = this.annotations.findIndex((a) => a.id === id);
     if (index === -1) return;
     const [annotation] = this.annotations.splice(index, 1);
@@ -243,7 +207,7 @@ export class AnnotationController {
 
   // arrow function to solve weird "this" bug
   #onRelocate = () => {
-    const view = this.#reader?.view;
+    const view = this.#view;
 
     if (!view) {
       console.warn("Annotations: failed loading annotations")
@@ -251,13 +215,14 @@ export class AnnotationController {
     }
 
     for (let { id, value, option, kind, points } of this.annotations) {
-
+      console.log(value)
       switch (kind) {
         case AnnotationKind.highlight:
+          console.log("we're in here")
           this.#drawHighlight(view, id, value, option)
           break;
         case AnnotationKind.ink:
-          this.#drawInk(view, id, value, option, points)
+          this.#drawInk(view, id, value, { ...option, points: points ?? [] })
           break;
         default:
           console.warn("Annotations: Non e sucesso un cazzo")
@@ -265,46 +230,46 @@ export class AnnotationController {
     }
   }
 
-  #drawHighlight(view: any, id: number, cfi: string, option: AnnotationOption) {
+  #drawHighlight(view: any, id: number, cfi: string, options: AnnotationOption) {
     const { index, anchor } = view.resolveCFI(cfi);
 
     const content = this.#getContent(view, index);
     if (!content?.overlayer) return;
-
+    console.log("didn't survive this")
     const range = anchor(content.doc);
-    content.overlayer.add(id.toString(), range, this.#overlayer.highlight, option)
+    content.overlayer.add(id.toString(), range, this.#overlayer.highlight, options)
   }
 
-  #drawInk(view: any, id: number, cfi: string, options: AnnotationOption, points: Vec2[] | null) {
-    if (!points || points.length === 0) return;
+  #drawInk(view: any, id: number, cfi: string, options: AnnotationOption) {
+
+    const createSVGElement = (tag: string) =>
+      document.createElementNS('http://www.w3.org/2000/svg', tag)
+
+    const customDrawFn = (rects: DOMRect[], options: AnnotationOption): any => {
+      const el = createSVGElement("path")
+      el.setAttribute("fill", "none");
+      el.setAttribute("stroke", options.color);
+      el.setAttribute("stroke-width", String(options.width ?? 3));
+      // NOTE: process contiguous runs in points and group them together in one element 
+      if (!options.points || options.points.length == 0) return el;
+      const d = options.points
+        .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
+        .join(' ');
+      el.setAttribute("d", d);
+      return el;
+    }
 
     const { index, anchor } = view.resolveCFI(cfi);
 
     const content = this.#getContent(view, index);
-
     if (!content?.overlayer) return;
 
     const range = anchor(content.doc);
     const rect = range.getBoundingClientRect();
-    const el = this.#createPathElement(options, points, rect)
-    content.overlayer.element.appendChild(el);
+
+    console.log("I was here")
+    content.overlayer.add(id.toString(), range, customDrawFn, options);
   }
-
-  #createPathElement(options: AnnotationOption, points: Vec2[] = [], rect: Vec2 = { x: 0, y: 0 }): SVGPathElement {
-
-    const d = points
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
-      .join(' ');
-
-    const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    el.setAttribute("fill", "none");
-    el.setAttribute("stroke", options.color);
-    el.setAttribute("stroke-width", String(options.width ?? 3));
-    el.setAttribute("d", d);
-    return el;
-
-  }
-
   #eraseDrawing(cfi: string, id: number) {
     const view = this.#reader?.view;
     if (!view) return;
