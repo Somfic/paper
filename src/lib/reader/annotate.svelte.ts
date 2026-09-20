@@ -10,7 +10,7 @@ export type AnnotationOption = {
   kind: AnnotationKind,
   color: string,
   width?: number,
-  points?: Vec2[], // only useful for injecting points into the draw ink system
+  points?: Vec2[][], // only useful for injecting points into the draw ink system
 }
 
 export type Vec2 = { x: number, y: number }
@@ -22,7 +22,7 @@ export type Annotation = {
   kind: AnnotationKind, // magari piu nel futuro
   index: number,
   value: string, // Always a CFI string — for ink this anchors the stroke's origin point
-  points: Vec2[] | undefined, // ink only: stroke points, relative to the anchor's bounding rect
+  points: Vec2[][] | undefined, // ink only: stroke points, relative to the anchor's bounding rect
   createdAt: Date
   option: AnnotationOption
 }
@@ -56,7 +56,8 @@ export class AnnotationController {
   // Ink States
   isInkCapture = $state(false);
   anchorRect: Vec2 | null = null;
-  offsets: Vec2[] = [];
+  offsets: Vec2[] = []; // one contiunous flow of the ink / one path of g 
+
   // Highlight States
 
   attach(reader: ReaderController) {
@@ -86,8 +87,6 @@ export class AnnotationController {
       this.annotations = [];
       this.sessionIds = [];
     }
-
-
   }
 
   // it returns the book content or the iframe that hosts the svg layer "Overlayer"
@@ -98,7 +97,7 @@ export class AnnotationController {
   }
 
   async inkSelection(document: Document, index: number, range: Range) {
-    this.offsets = [];
+    // this.offsets = [];
     this.option.kind = AnnotationKind.ink;
     document.body.style.userSelect = "none";
 
@@ -110,12 +109,12 @@ export class AnnotationController {
     if (!rect) return;
     this.anchorRect = { x: rect.x, y: rect.y };
 
-    console.log(this.#view);
+    this.option.points = [];
     await this.inkCapture(document);
 
     if (!this.#view) return;
     const cfi = this.#view.getCFI(index, range)
-    const option: AnnotationOption = { ...this.option, kind: AnnotationKind.ink, points: this.offsets };
+    const option: AnnotationOption = { ...this.option, kind: AnnotationKind.ink };
     const annotationId = await this.insertAnnotationToDB(index, cfi, option)
     this.#drawInk(this.#view, annotationId, cfi, option)
   }
@@ -142,7 +141,19 @@ export class AnnotationController {
   handleInkEvent = (event: PointerEvent) => {
     if (!this.anchorRect) return;
     // NOTE: ensure points are relayed at equal intervals of distance (maybe time?)
+    let diff = 0;
+    const lastPoint = this.offsets.at(-1);
+
+    if (lastPoint) {
+      const { x, y } = lastPoint;
+      diff = Math.sqrt((x - event.clientX) ** 2 + (y - event.clientY) ** 2)
+    }
+
     if (event.buttons > 0) this.offsets.push({ x: event.clientX - this.anchorRect.x, y: event.clientY - this.anchorRect.y })
+    else if (this.offsets.length > 0) {
+      this.option.points?.push(this.offsets);
+      this.offsets = [];
+    }
   }
 
   /** Highlight a settled selection. Takes the range directly — the caller
@@ -158,12 +169,12 @@ export class AnnotationController {
 
     const cfi = this.#view.getCFI(index, range)
     const option: AnnotationOption = { ...this.option, kind: AnnotationKind.highlight };
-    const annotationId = await this.insertAnnotationToDB(index, cfi, option)
+    const annotationId = await this.insertAnnotationToDB(index, cfi, option);
     this.#drawHighlight(this.#view, annotationId, cfi, option);
   }
 
   async insertAnnotationToDB(index: number, cfi: string, option: AnnotationOption) {
-    const points = option.kind === AnnotationKind.ink ? this.offsets : undefined;
+    const points = option.kind === AnnotationKind.ink ? this.option.points : undefined;
     const draft: Omit<Annotation, "id"> = {
       index,
       value: cfi,
@@ -174,7 +185,9 @@ export class AnnotationController {
       createdAt: new Date()
     }
 
-    const annotationId = await library.putAnnotation(draft);
+    // draft.option.points nests inside this.option, a $state proxy — put()
+    // can't structured-clone a Proxy, so snapshot to plain data first.
+    const annotationId = await library.putAnnotation($state.snapshot(draft));
 
     console.log(annotationId);
 
@@ -246,17 +259,23 @@ export class AnnotationController {
       document.createElementNS('http://www.w3.org/2000/svg', tag)
 
     const customDrawFn = (rects: DOMRect[], options: AnnotationOption): any => {
-      const el = createSVGElement("path")
-      el.setAttribute("fill", "none");
-      el.setAttribute("stroke", options.color);
-      el.setAttribute("stroke-width", String(options.width ?? 3));
-      // NOTE: process contiguous runs in points and group them together in one element 
-      if (!options.points || options.points.length == 0) return el;
-      const d = options.points
-        .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
-        .join(' ');
-      el.setAttribute("d", d);
-      return el;
+      console.log(options.points)
+      if (!options.points) return;
+      const g = createSVGElement("g");
+      for (let path of options.points) {
+        const el = createSVGElement("path")
+        el.setAttribute("fill", "none");
+        el.setAttribute("stroke", options.color);
+        el.setAttribute("stroke-width", String(options.width ?? 3));
+        // NOTE: process contiguous runs in points and group them together in one element 
+        if (!options.points || options.points.length == 0) return el;
+        const d = path
+          .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
+          .join(' ');
+        el.setAttribute("d", d);
+        g.appendChild(el)
+      }
+      return g;
     }
 
     const { index, anchor } = view.resolveCFI(cfi);
