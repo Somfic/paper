@@ -6,8 +6,8 @@ import { liftPoint } from "./quote.svelte";
 // drawn through foliate's Overlayer and persisted to IndexedDB. The model
 // keeps one rule: an anchor holds at most one annotation, so creating one is
 // only ever offered where none exists yet — see `annotationAt()`, which
-// QuoteCard.svelte checks before choosing between Highlight/Ink and a delete
-// affordance.
+// SelectionActions.svelte checks before choosing between Highlight/Ink and a
+// delete affordance.
 
 export enum AnnotationKind {
   highlight,
@@ -84,7 +84,7 @@ export class AnnotationController {
   /** anchorRect lifted into page coordinates, for overlays drawn outside the iframe */
   pageAnchor: Vec2 | null = $state(null);
   /** id + page-lifted point of a mark clicked directly on the page — the
-   *  standalone trash-only pill (QuoteCard.svelte) reads this. */
+   *  standalone trash-only pill (SelectionActions.svelte) reads this. */
   pendingErase = $state<{ id: number; point: Vec2 } | null>(null);
 
   // ── private refs ───────────────────────────────────────────────
@@ -318,7 +318,7 @@ export class AnnotationController {
     const range = anchor(content.doc);
     const draw = (rects: DOMRect[], opts: AnnotationOption) => {
       const el = this.#overlayer.highlight(rects, opts);
-      this.#makeErasable(el, id, content.doc);
+      this.#makeErasable(el, id);
       return el;
     };
     content.overlayer.add(id.toString(), range, draw, options);
@@ -334,7 +334,7 @@ export class AnnotationController {
     const inner = drawInk(rect);
     const draw = (rects: DOMRect[], opts: AnnotationOption) => {
       const el = inner(rects, opts);
-      if (el) this.#makeErasable(el, id, content.doc);
+      if (el) this.#makeErasable(el, id);
       return el;
     };
     content.overlayer.add(id.toString(), range, draw, options);
@@ -342,13 +342,17 @@ export class AnnotationController {
 
   /** Overlayer's own <svg> is pointer-events:none so it never steals page
    *  clicks — a mark opts back in so a click on it opens the trash-only pill
-   *  instead of the delete needing a text selection. */
-  #makeErasable(el: SVGElement, id: number, doc: Document) {
+   *  instead of the delete needing a text selection.
+   *
+   *  No coordinate lift needed here (unlike ink capture): the overlayer's
+   *  <svg> is appended in the *top* document, absolutely positioned over the
+   *  section's iframe (paginator.js), not inside the iframe itself — so a
+   *  click on a mark already arrives in top-document coordinates. */
+  #makeErasable(el: SVGElement, id: number) {
     el.style.pointerEvents = "auto";
     el.style.cursor = "pointer";
     el.addEventListener("click", (e: MouseEvent) => {
       e.stopPropagation();
-      console.log(liftPoint(doc, e.clientX, e.clientY))
       this.pendingErase = { id, point: { x: e.clientX, y: e.clientY } };
     });
   }

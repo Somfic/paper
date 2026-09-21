@@ -5,6 +5,15 @@
   import { QuoteCards, REFUSE_CHARS } from "$lib/reader/quote.svelte";
   import { AnnotationController, type Vec2 } from "$lib/reader/annotate.svelte";
 
+  // Keeps a pill's anchor point on screen: `padX` is roughly the pill's own
+  // half-width so it doesn't run past an edge, y just stays clear of the header.
+  function clampToViewport(x: number, y: number, padX: number) {
+    return {
+      x: Math.min(Math.max(x, padX), window.innerWidth - padX),
+      y: Math.max(y, 56),
+    };
+  }
+
   let { reader }: { reader: ReaderController } = $props();
 
   const quotes = new QuoteCards();
@@ -53,12 +62,7 @@
   // Keep the pill on screen when the passage starts at an edge.
   const pill = $derived.by(() => {
     const a = quotes.anchor;
-    if (!a) return null;
-    const pad = 60;
-    return {
-      x: Math.min(Math.max(a.x, pad), window.innerWidth - pad),
-      y: Math.max(a.y, 56),
-    };
+    return a ? clampToViewport(a.x, a.y, 60) : null;
   });
 
   // One anchor holds at most one annotation — a settled selection that lands
@@ -75,12 +79,7 @@
   // here but delete.
   const erasePill = $derived.by(() => {
     const pending = annotations.pendingErase;
-    if (!pending) return null;
-    const pad = 10;
-    return {
-      x: Math.min(Math.max(pending.point.x, pad), window.innerWidth - pad),
-      y: Math.max(pending.point.y, 56),
-    };
+    return pending ? clampToViewport(pending.point.x, pending.point.y, 10) : null;
   });
 
   function create() {
