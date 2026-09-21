@@ -3,7 +3,7 @@
   import { Button } from "glow";
   import type { ReaderController } from "$lib/reader/reader.svelte";
   import { QuoteCards, REFUSE_CHARS } from "$lib/reader/quote.svelte";
-  import { AnnotationController } from "$lib/reader/annotate.svelte";
+  import { AnnotationController, type Vec2 } from "$lib/reader/annotate.svelte";
 
   let { reader }: { reader: ReaderController } = $props();
 
@@ -73,6 +73,17 @@
     annotations.inkSelection(quotes.doc, target.index, target.range);
   }
 </script>
+
+<svg class="annotationFeedback">
+  {#each annotations.option.points as points}
+    <path
+      d={AnnotationController.parsePointsToPath(points, annotations.pageAnchor as Vec2)}
+      fill={"none"}
+      stroke={annotations.option.color}
+      stroke-width={String(annotations.option.width ?? 3)}
+    />
+  {/each}
+</svg>
 
 <svelte:window
   onkeydown={(e) => {
@@ -169,6 +180,14 @@
 {/if}
 
 <style>
+  svg {
+    position: fixed;
+    inset: 0;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
   /* floating selection actions, anchored to the start of the passage */
   .pill-row {
     position: fixed;

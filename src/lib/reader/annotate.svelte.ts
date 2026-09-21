@@ -1,5 +1,6 @@
 import * as library from "$lib/library";
 import type { ReaderController } from "./reader.svelte";
+import { liftPoint } from "./quote.svelte";
 
 export enum AnnotationKind {
   highlight,
@@ -55,9 +56,10 @@ export class AnnotationController {
 
   // Ink States
   isInkCapture = $state(false);
-  anchorRect: Vec2 | null = null;
-  offsets: Vec2[] = []; // one contiunous flow of the ink / one path of g 
-
+  anchorRect: Vec2 | null = null; // iframe-local — matches the pointer events offsets are captured from
+  pageAnchor: Vec2 | null = $state(null); // anchorRect lifted into page coordinates, for overlays drawn outside the iframe
+  offsets: Vec2[] = []; // one contiunous flow of the ink / one path of g
+  static readonly #POLLINGRATE = 10;
   // Highlight States
 
   attach(reader: ReaderController) {
@@ -96,6 +98,12 @@ export class AnnotationController {
       ?.find((c: any) => c.index === index);
   }
 
+  static parsePointsToPath(points: Vec2[], rect: Vec2) {
+    return points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
+      .join(' ');
+  }
+
   async inkSelection(document: Document, index: number, range: Range) {
     // this.offsets = [];
     this.option.kind = AnnotationKind.ink;
@@ -108,6 +116,7 @@ export class AnnotationController {
     console.log(rect);
     if (!rect) return;
     this.anchorRect = { x: rect.x, y: rect.y };
+    this.pageAnchor = liftPoint(document, rect.x, rect.y);
 
     this.option.points = [];
     await this.inkCapture(document);
@@ -141,7 +150,7 @@ export class AnnotationController {
   handleInkEvent = (event: PointerEvent) => {
     if (!this.anchorRect) return;
     // NOTE: ensure points are relayed at equal intervals of distance (maybe time?)
-    let diff = 0;
+    let diff = 100;
     const lastPoint = this.offsets.at(-1);
 
     if (lastPoint) {
@@ -149,7 +158,7 @@ export class AnnotationController {
       diff = Math.sqrt((x - event.clientX) ** 2 + (y - event.clientY) ** 2)
     }
 
-    if (event.buttons > 0) this.offsets.push({ x: event.clientX - this.anchorRect.x, y: event.clientY - this.anchorRect.y })
+    if (event.buttons > 0 && diff > AnnotationController.#POLLINGRATE) this.offsets.push({ x: event.clientX - this.anchorRect.x, y: event.clientY - this.anchorRect.y })
     else if (this.offsets.length > 0) {
       this.option.points?.push(this.offsets);
       this.offsets = [];
@@ -269,9 +278,7 @@ export class AnnotationController {
         el.setAttribute("stroke-width", String(options.width ?? 3));
         // NOTE: process contiguous runs in points and group them together in one element 
         if (!options.points || options.points.length == 0) return el;
-        const d = path
-          .map((p, i) => `${i === 0 ? 'M' : 'L'} ${rect.x + p.x} ${rect.y + p.y}`)
-          .join(' ');
+        const d = AnnotationController.parsePointsToPath(path, rect);
         el.setAttribute("d", d);
         g.appendChild(el)
       }

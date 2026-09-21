@@ -287,10 +287,8 @@ function cardTheme(t: Theme) {
   };
 }
 
-/** Lift a rect out of its (possibly nested) iframe into page coordinates. */
-function toTopViewport(doc: Document, rect: DOMRect | DOMRectReadOnly) {
-  let x = rect.left + rect.width / 2;
-  let y = rect.top;
+/** Lift a point out of its (possibly nested) iframe into page coordinates. */
+export function liftPoint(doc: Document, x: number, y: number) {
   let win: Window | null = doc.defaultView;
   while (win && win !== window) {
     const frame = win.frameElement as HTMLElement | null;
@@ -301,4 +299,9 @@ function toTopViewport(doc: Document, rect: DOMRect | DOMRectReadOnly) {
     win = frame.ownerDocument.defaultView;
   }
   return { x, y };
+}
+
+/** Lift a rect's top-center point out of its (possibly nested) iframe into page coordinates. */
+export function toTopViewport(doc: Document, rect: DOMRect | DOMRectReadOnly) {
+  return liftPoint(doc, rect.left + rect.width / 2, rect.top);
 }
