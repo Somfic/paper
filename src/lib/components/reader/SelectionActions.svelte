@@ -79,7 +79,9 @@
   // here but delete.
   const erasePill = $derived.by(() => {
     const pending = annotations.pendingErase;
-    return pending ? clampToViewport(pending.point.x, pending.point.y, 10) : null;
+    return pending
+      ? clampToViewport(pending.point.x, pending.point.y, 10)
+      : null;
   });
 
   function create() {
@@ -97,12 +99,13 @@
     quotes.dismiss();
   }
 
-  function ink() {
+  async function ink() {
     annotations.isInkCapture = true;
     const target = quotes.target();
     if (!target) return;
     if (!quotes.doc) return;
-    annotations.inkSelection(quotes.doc, target.index, target.range);
+    await annotations.inkSelection(quotes.doc, target.index, target.range);
+    quotes.dismiss();
   }
 
   async function remove() {

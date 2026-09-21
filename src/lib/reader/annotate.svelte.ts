@@ -93,6 +93,9 @@ export class AnnotationController {
   #bookId = 0;
   #overlayer = $state<any>(null); // overlayer.js, once it lands offers draw methods
   sessionIds: number[] = [];
+  // one cleanup per section doc we've wired a dismiss listener into — mirrors
+  // QuoteCards' own #docs bookkeeping in quote.svelte.ts
+  #eraseDocs = new Map<Document, () => void>();
 
   // ── ink capture ────────────────────────────────────────────────
   static readonly #POLLING_RATE = 10; // px — offsets closer than this to the last one are dropped
@@ -145,8 +148,23 @@ export class AnnotationController {
 
     this.#reader.view.addEventListener("relocate", this.#onRelocate);
 
+    // The trash-only pill only ever sees clicks in the *top* document (see
+    // #makeErasable) — the book text itself renders inside each section's
+    // iframe, so a click there never bubbles up to a window listener. Wire
+    // the same "click elsewhere dismisses" dismissal directly into every
+    // section doc, same as QuoteCards.observe() does for its own pill.
+    const dismissErase = () => (this.pendingErase = null);
+    const offSection = reader.onSection((doc: Document) => {
+      if (this.#eraseDocs.has(doc)) return;
+      doc.addEventListener("pointerdown", dismissErase);
+      this.#eraseDocs.set(doc, () => doc.removeEventListener("pointerdown", dismissErase));
+    });
+
     return () => {
       this.#reader.view.removeEventListener("relocate", this.#onRelocate);
+      offSection();
+      for (const off of this.#eraseDocs.values()) off();
+      this.#eraseDocs.clear();
       this.#reader = null;
       this.annotations = [];
       this.sessionIds = [];
