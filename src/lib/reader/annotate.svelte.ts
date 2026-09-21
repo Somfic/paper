@@ -211,6 +211,8 @@ export class AnnotationController {
     const option: AnnotationOption = { ...this.option, kind };
     const id = await this.#insertAnnotation(index, cfi, option);
     this.#draw(kind, this.#view, id, cfi, option);
+    // bug fix removing persistent annotationFeedback artifcat 
+    this.option.points = [];
     return id;
   }
 
