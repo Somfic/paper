@@ -2,6 +2,102 @@
 	"source": "standardebooks.org",
 	"books": [
 		{
+			"slug": "henry-seton-merriman/the-sowers",
+			"title": "The Sowers",
+			"authors": [
+				"Henry Seton Merriman"
+			],
+			"cover": "90e901e9d196aefeac116842291049c54a6da78a"
+		},
+		{
+			"slug": "e-nesbit/beautiful-stories-from-shakespeare",
+			"title": "Beautiful Stories from Shakespeare",
+			"authors": [
+				"E. Nesbit"
+			],
+			"cover": "24c20eec7f4f70f40742df0e5868573d37784f53"
+		},
+		{
+			"slug": "ernst-junger/the-storm-of-steel/basil-creighton",
+			"title": "The Storm of Steel",
+			"authors": [
+				"Ernst Jünger"
+			],
+			"cover": "8fb005c62e9d2ae5826b505ac34d5fbb48ba2536"
+		},
+		{
+			"slug": "gregory-of-nyssa/on-the-making-of-man/william-moore_henry-austin-wilson",
+			"title": "On the Making of Man",
+			"authors": [
+				"Gregory of Nyssa"
+			],
+			"cover": "d2a53eda3cdb2f6975040b6c6d7570758a8e53de"
+		},
+		{
+			"slug": "dorothy-m-richardson/oberland",
+			"title": "Oberland",
+			"authors": [
+				"Dorothy M. Richardson"
+			],
+			"cover": "0dd946913814fd4d52962272f83a0855496e029f"
+		},
+		{
+			"slug": "a-e-w-mason/the-house-of-the-arrow",
+			"title": "The House of the Arrow",
+			"authors": [
+				"A. E. W. Mason"
+			],
+			"cover": "8b7b20ab512a8fb36c464d6e762fefa65b68b64e"
+		},
+		{
+			"slug": "henry-seton-merriman/barlasch-of-the-guard",
+			"title": "Barlasch of the Guard",
+			"authors": [
+				"Henry Seton Merriman"
+			],
+			"cover": "9b2f2208ef56ba8903ead2626691f28b5c7ea4ea"
+		},
+		{
+			"slug": "winnifred-eaton-reeve/his-royal-nibs",
+			"title": "His Royal Nibs",
+			"authors": [
+				"Winnifred Eaton Reeve"
+			],
+			"cover": "9a13d0dd9a8eb3f3f0eafe0d68fd3324cd4108ce"
+		},
+		{
+			"slug": "w-h-davies/the-autobiography-of-a-super-tramp",
+			"title": "The Autobiography of a Super-Tramp",
+			"authors": [
+				"W. H. Davies"
+			],
+			"cover": "2b6e9f0437ac87f8f613ce4c9e0dbcaf05253fb3"
+		},
+		{
+			"slug": "pauline-e-hopkins/contending-forces",
+			"title": "Contending Forces",
+			"authors": [
+				"Pauline E. Hopkins"
+			],
+			"cover": "2559ea78f3ad14fd86a3b261e327c2a4636aad36"
+		},
+		{
+			"slug": "gustave-flaubert/sentimental-education/m-walter-dunne",
+			"title": "Sentimental Education",
+			"authors": [
+				"Gustave Flaubert"
+			],
+			"cover": "77136be6fa944bf78b9aae4788ea81f732a9e844"
+		},
+		{
+			"slug": "edmund-burke/reflections-on-the-revolution-in-france",
+			"title": "Reflections on the Revolution in France",
+			"authors": [
+				"Edmund Burke"
+			],
+			"cover": "bddc6b813d6786b46a2af85f282ef0a6885c0303"
+		},
+		{
 			"slug": "thomas-mann/short-fiction/various-translators",
 			"title": "Short Fiction",
 			"authors": [
@@ -3113,116 +3209,12 @@
 			"cover": "8f828cb773c9c2425bf3b423b0568ef4617ec019"
 		},
 		{
-			"slug": "arthur-conan-doyle/the-maracot-deep",
-			"title": "The Maracot Deep",
+			"slug": "thomas-wolfe/look-homeward-angel",
+			"title": "Look Homeward, Angel",
 			"authors": [
-				"Arthur Conan Doyle"
+				"Thomas Wolfe"
 			],
-			"cover": "8f73fb740c0dc4c92aec57115d6a38c463b81671"
-		},
-		{
-			"slug": "calvin-coolidge/the-autobiography-of-calvin-coolidge",
-			"title": "The Autobiography of Calvin Coolidge",
-			"authors": [
-				"Calvin Coolidge"
-			],
-			"cover": "90ecfa7214c27de7af9086e4abf666f830591aae"
-		},
-		{
-			"slug": "c-s-forester/brown-on-resolution",
-			"title": "Brown on Resolution",
-			"authors": [
-				"C. S. Forester"
-			],
-			"cover": "de096c94add4ed9c89595498c0c9871d383e6da5"
-		},
-		{
-			"slug": "dashiell-hammett/red-harvest",
-			"title": "Red Harvest",
-			"authors": [
-				"Dashiell Hammett"
-			],
-			"cover": "7c43aa3112c6d371a9d795ee4a42da958e766fe5"
-		},
-		{
-			"slug": "dashiell-hammett/the-dain-curse",
-			"title": "The Dain Curse",
-			"authors": [
-				"Dashiell Hammett"
-			],
-			"cover": "89e67508bfb2b5526054f1e9bdbb357005439e19"
-		},
-		{
-			"slug": "edith-wharton/hudson-river-bracketed",
-			"title": "Hudson River Bracketed",
-			"authors": [
-				"Edith Wharton"
-			],
-			"cover": "342c76252c19a9bafa7bd0711f4b21a634afd090"
-		},
-		{
-			"slug": "erich-maria-remarque/all-quiet-on-the-western-front/a-w-wheen",
-			"title": "All Quiet on the Western Front",
-			"authors": [
-				"Erich Maria Remarque"
-			],
-			"cover": "69e9236a0b1f3c693562dfa52a1fb98050ca29f9"
-		},
-		{
-			"slug": "graham-greene/the-man-within",
-			"title": "The Man Within",
-			"authors": [
-				"Graham Greene"
-			],
-			"cover": "a5ac0c9851c5a1c2aebe9d43194b01bd6314ecbf"
-		},
-		{
-			"slug": "john-buchan/the-courts-of-the-morning",
-			"title": "The Courts of the Morning",
-			"authors": [
-				"John Buchan"
-			],
-			"cover": "45cb2fde4507e3d778914cfa6418512ff65556c3"
-		},
-		{
-			"slug": "john-steinbeck/cup-of-gold",
-			"title": "Cup of Gold",
-			"authors": [
-				"John Steinbeck"
-			],
-			"cover": "91e3dccb5ac05ff5a05ee6c385f338e646cfcacb"
-		},
-		{
-			"slug": "josephine-tey/the-man-in-the-queue",
-			"title": "The Man in the Queue",
-			"authors": [
-				"Josephine Tey"
-			],
-			"cover": "d0200b1ceb612a750884cde3b210960ca903177c"
-		},
-		{
-			"slug": "lloyd-c-douglas/magnificent-obsession",
-			"title": "Magnificent Obsession",
-			"authors": [
-				"Lloyd C. Douglas"
-			],
-			"cover": "1db4ef6b815fb98c9b316d65ef670b234a3c5543"
-		},
-		{
-			"slug": "oliver-la-farge/laughing-boy",
-			"title": "Laughing Boy",
-			"authors": [
-				"Oliver La Farge"
-			],
-			"cover": "d1aa4aa5b0b683f9226682e17345ef1798a5d587"
-		},
-		{
-			"slug": "mahatma-gandhi/the-story-of-my-experiments-with-truth/mahadev-desai",
-			"title": "The Story of My Experiments with Truth",
-			"authors": [
-				"Mahatma Gandhi"
-			],
-			"cover": "6cc40f2747c8f1b43a638810fca60a29ef683e7d"
+			"cover": "eb7853d0f85c942ab411839c786d59de435b1543"
 		},
 		{
 			"slug": "sinclair-lewis/dodsworth",
@@ -3233,20 +3225,124 @@
 			"cover": "0cd52427ff7384e24e17cc18a74c89b8be033744"
 		},
 		{
-			"slug": "thomas-wolfe/look-homeward-angel",
-			"title": "Look Homeward, Angel",
+			"slug": "mahatma-gandhi/the-story-of-my-experiments-with-truth/mahadev-desai",
+			"title": "The Story of My Experiments with Truth",
 			"authors": [
-				"Thomas Wolfe"
+				"Mahatma Gandhi"
 			],
-			"cover": "eb7853d0f85c942ab411839c786d59de435b1543"
+			"cover": "6cc40f2747c8f1b43a638810fca60a29ef683e7d"
 		},
 		{
-			"slug": "j-b-priestley/the-good-companions",
-			"title": "The Good Companions",
+			"slug": "oliver-la-farge/laughing-boy",
+			"title": "Laughing Boy",
 			"authors": [
-				"J. B. Priestley"
+				"Oliver La Farge"
 			],
-			"cover": "8bccdd38eb5fdf0c4b9facf0efe33562e2d0819e"
+			"cover": "d1aa4aa5b0b683f9226682e17345ef1798a5d587"
+		},
+		{
+			"slug": "lloyd-c-douglas/magnificent-obsession",
+			"title": "Magnificent Obsession",
+			"authors": [
+				"Lloyd C. Douglas"
+			],
+			"cover": "1db4ef6b815fb98c9b316d65ef670b234a3c5543"
+		},
+		{
+			"slug": "josephine-tey/the-man-in-the-queue",
+			"title": "The Man in the Queue",
+			"authors": [
+				"Josephine Tey"
+			],
+			"cover": "d0200b1ceb612a750884cde3b210960ca903177c"
+		},
+		{
+			"slug": "john-steinbeck/cup-of-gold",
+			"title": "Cup of Gold",
+			"authors": [
+				"John Steinbeck"
+			],
+			"cover": "91e3dccb5ac05ff5a05ee6c385f338e646cfcacb"
+		},
+		{
+			"slug": "john-buchan/the-courts-of-the-morning",
+			"title": "The Courts of the Morning",
+			"authors": [
+				"John Buchan"
+			],
+			"cover": "45cb2fde4507e3d778914cfa6418512ff65556c3"
+		},
+		{
+			"slug": "graham-greene/the-man-within",
+			"title": "The Man Within",
+			"authors": [
+				"Graham Greene"
+			],
+			"cover": "a5ac0c9851c5a1c2aebe9d43194b01bd6314ecbf"
+		},
+		{
+			"slug": "erich-maria-remarque/all-quiet-on-the-western-front/a-w-wheen",
+			"title": "All Quiet on the Western Front",
+			"authors": [
+				"Erich Maria Remarque"
+			],
+			"cover": "69e9236a0b1f3c693562dfa52a1fb98050ca29f9"
+		},
+		{
+			"slug": "edith-wharton/hudson-river-bracketed",
+			"title": "Hudson River Bracketed",
+			"authors": [
+				"Edith Wharton"
+			],
+			"cover": "342c76252c19a9bafa7bd0711f4b21a634afd090"
+		},
+		{
+			"slug": "dashiell-hammett/the-dain-curse",
+			"title": "The Dain Curse",
+			"authors": [
+				"Dashiell Hammett"
+			],
+			"cover": "89e67508bfb2b5526054f1e9bdbb357005439e19"
+		},
+		{
+			"slug": "dashiell-hammett/red-harvest",
+			"title": "Red Harvest",
+			"authors": [
+				"Dashiell Hammett"
+			],
+			"cover": "7c43aa3112c6d371a9d795ee4a42da958e766fe5"
+		},
+		{
+			"slug": "c-s-forester/brown-on-resolution",
+			"title": "Brown on Resolution",
+			"authors": [
+				"C. S. Forester"
+			],
+			"cover": "de096c94add4ed9c89595498c0c9871d383e6da5"
+		},
+		{
+			"slug": "calvin-coolidge/the-autobiography-of-calvin-coolidge",
+			"title": "The Autobiography of Calvin Coolidge",
+			"authors": [
+				"Calvin Coolidge"
+			],
+			"cover": "90ecfa7214c27de7af9086e4abf666f830591aae"
+		},
+		{
+			"slug": "arthur-conan-doyle/the-maracot-deep",
+			"title": "The Maracot Deep",
+			"authors": [
+				"Arthur Conan Doyle"
+			],
+			"cover": "8f73fb740c0dc4c92aec57115d6a38c463b81671"
+		},
+		{
+			"slug": "ernest-hemingway/a-farewell-to-arms",
+			"title": "A Farewell to Arms",
+			"authors": [
+				"Ernest Hemingway"
+			],
+			"cover": "04be5a7be090907c6c5d711f127e56a33cc17ffb"
 		},
 		{
 			"slug": "william-faulkner/the-sound-and-the-fury",
@@ -3265,12 +3361,12 @@
 			"cover": "9b4302af02f0fab9ca022a00e6825631d03a9606"
 		},
 		{
-			"slug": "ernest-hemingway/a-farewell-to-arms",
-			"title": "A Farewell to Arms",
+			"slug": "j-b-priestley/the-good-companions",
+			"title": "The Good Companions",
 			"authors": [
-				"Ernest Hemingway"
+				"J. B. Priestley"
 			],
-			"cover": "04be5a7be090907c6c5d711f127e56a33cc17ffb"
+			"cover": "8bccdd38eb5fdf0c4b9facf0efe33562e2d0819e"
 		},
 		{
 			"slug": "george-bernard-shaw/fannys-first-play",
@@ -11857,14 +11953,6 @@
 			"cover": "738864bbde876242d6c08e804c53113ce9b4f687"
 		},
 		{
-			"slug": "robert-louis-stevenson/the-strange-case-of-dr-jekyll-and-mr-hyde",
-			"title": "The Strange Case of Dr. Jekyll and Mr. Hyde",
-			"authors": [
-				"Robert Louis Stevenson"
-			],
-			"cover": "272fad7d23f75883b253e3d7aaf868c79ae572af"
-		},
-		{
 			"slug": "stanley-g-weinbaum/short-fiction",
 			"title": "Short Fiction",
 			"authors": [
@@ -11873,12 +11961,12 @@
 			"cover": "ca898a58adc5562a333b39a730d206ee18ce6f20"
 		},
 		{
-			"slug": "mark-twain/the-adventures-of-huckleberry-finn",
-			"title": "The Adventures of Huckleberry Finn",
+			"slug": "robert-louis-stevenson/the-strange-case-of-dr-jekyll-and-mr-hyde",
+			"title": "The Strange Case of Dr. Jekyll and Mr. Hyde",
 			"authors": [
-				"Mark Twain"
+				"Robert Louis Stevenson"
 			],
-			"cover": "a1786c58444594683768afe5b239d80bb05be9c8"
+			"cover": "272fad7d23f75883b253e3d7aaf868c79ae572af"
 		},
 		{
 			"slug": "mary-shelley/frankenstein",
@@ -11889,76 +11977,20 @@
 			"cover": "a2a4d948cd6d7eaa6bd1ce223fe17e4380689b5a"
 		},
 		{
+			"slug": "mark-twain/the-adventures-of-huckleberry-finn",
+			"title": "The Adventures of Huckleberry Finn",
+			"authors": [
+				"Mark Twain"
+			],
+			"cover": "a1786c58444594683768afe5b239d80bb05be9c8"
+		},
+		{
 			"slug": "robert-louis-stevenson/treasure-island",
 			"title": "Treasure Island",
 			"authors": [
 				"Robert Louis Stevenson"
 			],
 			"cover": "3f6e12af1fa3a3600bc39de850901e95f4064999"
-		},
-		{
-			"slug": "niccolo-machiavelli/the-prince/w-k-marriott",
-			"title": "The Prince",
-			"authors": [
-				"Niccolò Machiavelli"
-			],
-			"cover": "85768043af5e76df5f219a26fb139d5d11e5f6bd"
-		},
-		{
-			"slug": "omar-khayyam/the-rubaiyat-of-omar-khayyam/edward-fitzgerald",
-			"title": "The Rubáiyát of Omar Khayyám",
-			"authors": [
-				"Omar Khayyám"
-			],
-			"cover": "fa9753b622e51b13dcab13be21a255239f104c5e"
-		},
-		{
-			"slug": "oscar-wilde/the-importance-of-being-earnest",
-			"title": "The Importance of Being Earnest",
-			"authors": [
-				"Oscar Wilde"
-			],
-			"cover": "62bea6a8da03c34f32b33a92c83c51047ca397ab"
-		},
-		{
-			"slug": "oscar-wilde/the-picture-of-dorian-gray",
-			"title": "The Picture of Dorian Gray",
-			"authors": [
-				"Oscar Wilde"
-			],
-			"cover": "dd3646f331ad1bb43a4085a8a343cd57fd114d9b"
-		},
-		{
-			"slug": "agatha-christie/the-mysterious-affair-at-styles",
-			"title": "The Mysterious Affair at Styles",
-			"authors": [
-				"Agatha Christie"
-			],
-			"cover": "874a507e8c66788c24dcd38bc8258dc9d259280c"
-		},
-		{
-			"slug": "jack-london/the-call-of-the-wild",
-			"title": "The Call of the Wild",
-			"authors": [
-				"Jack London"
-			],
-			"cover": "0bb7fce2876497b74928011afe1ce3f453eaaa75"
-		},
-		{
-			"slug": "jack-london/white-fang",
-			"title": "White Fang",
-			"authors": [
-				"Jack London"
-			],
-			"cover": "414dfc2b058232e5f3476b16cce9644dbce4229a"
-		},
-		{
-			"slug": "alfred-lord-tennyson/idylls-of-the-king",
-			"title": "Idylls of the King",
-			"authors": [
-				"Alfred, Lord Tennyson"
-			],
-			"cover": "ade844c51b6257e170d6b978753cdbc4f3a1ec99"
 		},
 		{
 			"slug": "william-wordsworth_samuel-taylor-coleridge/lyrical-ballads",
@@ -11970,140 +12002,12 @@
 			"cover": "71c6f10751f004eeaa7356fb479f28606ead03d3"
 		},
 		{
-			"slug": "james-joyce/dubliners",
-			"title": "Dubliners",
+			"slug": "w-w-jacobs/the-lady-of-the-barge",
+			"title": "The Lady of the Barge",
 			"authors": [
-				"James Joyce"
+				"W. W. Jacobs"
 			],
-			"cover": "87e3bf4e9986e015fbe16572a70165958528d3bc"
-		},
-		{
-			"slug": "jane-austen/pride-and-prejudice",
-			"title": "Pride and Prejudice",
-			"authors": [
-				"Jane Austen"
-			],
-			"cover": "495dd49502f1fd5609a27a16f5af2f0a387accb4"
-		},
-		{
-			"slug": "anton-chekhov/short-fiction/constance-garnett",
-			"title": "Short Fiction",
-			"authors": [
-				"Anton Chekhov"
-			],
-			"cover": "60bcc831e41e80b6fb89e1c2525a354f2cdd2c74"
-		},
-		{
-			"slug": "apsley-cherry-garrard/the-worst-journey-in-the-world",
-			"title": "The Worst Journey in the World",
-			"authors": [
-				"Apsley Cherry-Garrard"
-			],
-			"cover": "8977e6a8583785a97e3e5c824c4f8aae4278bd5c"
-		},
-		{
-			"slug": "robert-frost/north-of-boston",
-			"title": "North of Boston",
-			"authors": [
-				"Robert Frost"
-			],
-			"cover": "c5bba38d3bb4367038b99411d3ef01f1b68842a4"
-		},
-		{
-			"slug": "joseph-conrad/heart-of-darkness",
-			"title": "Heart of Darkness",
-			"authors": [
-				"Joseph Conrad"
-			],
-			"cover": "ba5c557b36c4ef70f47ce269c0e63958905590ab"
-		},
-		{
-			"slug": "rudolph-erich-raspe/the-surprising-adventures-of-baron-munchausen",
-			"title": "The Surprising Adventures of Baron Munchausen",
-			"authors": [
-				"Rudolph Erich Raspe"
-			],
-			"cover": "66b48e4147bb1ff47faadd66b7ec28a8cbefebe3"
-		},
-		{
-			"slug": "jules-verne/around-the-world-in-eighty-days/george-makepeace-towle",
-			"title": "Around the World in Eighty Days",
-			"authors": [
-				"Jules Verne"
-			],
-			"cover": "8e380bd08d5c68fc98c107d88eb8e08de8b1361a"
-		},
-		{
-			"slug": "friedrich-nietzsche/beyond-good-and-evil/helen-zimmern",
-			"title": "Beyond Good and Evil",
-			"authors": [
-				"Friedrich Nietzsche"
-			],
-			"cover": "b7fea881011ff7246fb8f68ced458629240bcc3c"
-		},
-		{
-			"slug": "bram-stoker/dracula",
-			"title": "Dracula",
-			"authors": [
-				"Bram Stoker"
-			],
-			"cover": "a02c17aca72aec342c861065c62cd25559a6d960"
-		},
-		{
-			"slug": "laozi/tao-te-ching/james-legge",
-			"title": "Tao Te Ching",
-			"authors": [
-				"Laozi"
-			],
-			"cover": "bf6bd17816ef8ac8dc6a5c4ecb7dccb9954da0a8"
-		},
-		{
-			"slug": "thomas-de-quincey/confessions-of-an-english-opium-eater",
-			"title": "Confessions of an English Opium-Eater",
-			"authors": [
-				"Thomas De Quincey"
-			],
-			"cover": "0825bcc88f3922654da64e132ad20c426e7a5b46"
-		},
-		{
-			"slug": "lewis-carroll/alices-adventures-in-wonderland/john-tenniel",
-			"title": "Alice’s Adventures in Wonderland",
-			"authors": [
-				"Lewis Carroll"
-			],
-			"cover": "6646aa82efefe0c673971c9df73c778c6f87d383"
-		},
-		{
-			"slug": "lord-dunsany/the-book-of-wonder/sidney-h-sime",
-			"title": "The Book of Wonder",
-			"authors": [
-				"Lord Dunsany"
-			],
-			"cover": "7d72629cc318d6d0f991f44edc45769c7f5fac63"
-		},
-		{
-			"slug": "upton-sinclair/the-jungle",
-			"title": "The Jungle",
-			"authors": [
-				"Upton Sinclair"
-			],
-			"cover": "f30d32f9a514cb5f008d7126e9475ec93d7bd4cd"
-		},
-		{
-			"slug": "h-g-wells/the-time-machine",
-			"title": "The Time Machine",
-			"authors": [
-				"H. G. Wells"
-			],
-			"cover": "974914346ad9e79cf998605783ecd534716ce12c"
-		},
-		{
-			"slug": "marcus-aurelius/meditations/george-long",
-			"title": "Meditations",
-			"authors": [
-				"Marcus Aurelius"
-			],
-			"cover": "463d624aab8bb716f04517f2a7e58ba99847d045"
+			"cover": "368f933d432c08fab885c4eda5232af7540e6b3c"
 		},
 		{
 			"slug": "voltaire/candide/the-modern-library",
@@ -12114,20 +12018,148 @@
 			"cover": "37716dd4ace359b4c5d21929caa2dbc5cc00d697"
 		},
 		{
-			"slug": "w-w-jacobs/the-lady-of-the-barge",
-			"title": "The Lady of the Barge",
+			"slug": "upton-sinclair/the-jungle",
+			"title": "The Jungle",
 			"authors": [
-				"W. W. Jacobs"
+				"Upton Sinclair"
 			],
-			"cover": "368f933d432c08fab885c4eda5232af7540e6b3c"
+			"cover": "f30d32f9a514cb5f008d7126e9475ec93d7bd4cd"
 		},
 		{
-			"slug": "henry-david-thoreau/walden",
-			"title": "Walden",
+			"slug": "thomas-de-quincey/confessions-of-an-english-opium-eater",
+			"title": "Confessions of an English Opium-Eater",
 			"authors": [
-				"Henry David Thoreau"
+				"Thomas De Quincey"
 			],
-			"cover": "92db4fdc4b6f86a49f22362fea2bff60b2b904cc"
+			"cover": "0825bcc88f3922654da64e132ad20c426e7a5b46"
+		},
+		{
+			"slug": "rudolph-erich-raspe/the-surprising-adventures-of-baron-munchausen",
+			"title": "The Surprising Adventures of Baron Munchausen",
+			"authors": [
+				"Rudolph Erich Raspe"
+			],
+			"cover": "66b48e4147bb1ff47faadd66b7ec28a8cbefebe3"
+		},
+		{
+			"slug": "robert-frost/north-of-boston",
+			"title": "North of Boston",
+			"authors": [
+				"Robert Frost"
+			],
+			"cover": "c5bba38d3bb4367038b99411d3ef01f1b68842a4"
+		},
+		{
+			"slug": "oscar-wilde/the-picture-of-dorian-gray",
+			"title": "The Picture of Dorian Gray",
+			"authors": [
+				"Oscar Wilde"
+			],
+			"cover": "dd3646f331ad1bb43a4085a8a343cd57fd114d9b"
+		},
+		{
+			"slug": "oscar-wilde/the-importance-of-being-earnest",
+			"title": "The Importance of Being Earnest",
+			"authors": [
+				"Oscar Wilde"
+			],
+			"cover": "62bea6a8da03c34f32b33a92c83c51047ca397ab"
+		},
+		{
+			"slug": "omar-khayyam/the-rubaiyat-of-omar-khayyam/edward-fitzgerald",
+			"title": "The Rubáiyát of Omar Khayyám",
+			"authors": [
+				"Omar Khayyám"
+			],
+			"cover": "fa9753b622e51b13dcab13be21a255239f104c5e"
+		},
+		{
+			"slug": "niccolo-machiavelli/the-prince/w-k-marriott",
+			"title": "The Prince",
+			"authors": [
+				"Niccolò Machiavelli"
+			],
+			"cover": "85768043af5e76df5f219a26fb139d5d11e5f6bd"
+		},
+		{
+			"slug": "marcus-aurelius/meditations/george-long",
+			"title": "Meditations",
+			"authors": [
+				"Marcus Aurelius"
+			],
+			"cover": "463d624aab8bb716f04517f2a7e58ba99847d045"
+		},
+		{
+			"slug": "lord-dunsany/the-book-of-wonder/sidney-h-sime",
+			"title": "The Book of Wonder",
+			"authors": [
+				"Lord Dunsany"
+			],
+			"cover": "7d72629cc318d6d0f991f44edc45769c7f5fac63"
+		},
+		{
+			"slug": "lewis-carroll/alices-adventures-in-wonderland/john-tenniel",
+			"title": "Alice’s Adventures in Wonderland",
+			"authors": [
+				"Lewis Carroll"
+			],
+			"cover": "6646aa82efefe0c673971c9df73c778c6f87d383"
+		},
+		{
+			"slug": "laozi/tao-te-ching/james-legge",
+			"title": "Tao Te Ching",
+			"authors": [
+				"Laozi"
+			],
+			"cover": "bf6bd17816ef8ac8dc6a5c4ecb7dccb9954da0a8"
+		},
+		{
+			"slug": "jules-verne/around-the-world-in-eighty-days/george-makepeace-towle",
+			"title": "Around the World in Eighty Days",
+			"authors": [
+				"Jules Verne"
+			],
+			"cover": "8e380bd08d5c68fc98c107d88eb8e08de8b1361a"
+		},
+		{
+			"slug": "joseph-conrad/heart-of-darkness",
+			"title": "Heart of Darkness",
+			"authors": [
+				"Joseph Conrad"
+			],
+			"cover": "ba5c557b36c4ef70f47ce269c0e63958905590ab"
+		},
+		{
+			"slug": "jane-austen/pride-and-prejudice",
+			"title": "Pride and Prejudice",
+			"authors": [
+				"Jane Austen"
+			],
+			"cover": "495dd49502f1fd5609a27a16f5af2f0a387accb4"
+		},
+		{
+			"slug": "james-joyce/dubliners",
+			"title": "Dubliners",
+			"authors": [
+				"James Joyce"
+			],
+			"cover": "87e3bf4e9986e015fbe16572a70165958528d3bc"
+		},
+		{
+			"slug": "jack-london/white-fang",
+			"title": "White Fang",
+			"authors": [
+				"Jack London"
+			],
+			"cover": "414dfc2b058232e5f3476b16cce9644dbce4229a"
+		},
+		{
+			"slug": "jack-london/the-call-of-the-wild",
+			"title": "The Call of the Wild",
+			"authors": [
+				"Jack London"
+			],
+			"cover": "0bb7fce2876497b74928011afe1ce3f453eaaa75"
 		},
 		{
 			"slug": "henry-james/the-turn-of-the-screw",
@@ -12138,12 +12170,28 @@
 			"cover": "68b2fb0f363354af3605068c2119ab13e915b29f"
 		},
 		{
-			"slug": "edgar-allan-poe/the-narrative-of-arthur-gordon-pym-of-nantucket",
-			"title": "The Narrative of Arthur Gordon Pym of Nantucket",
+			"slug": "henry-david-thoreau/walden",
+			"title": "Walden",
 			"authors": [
-				"Edgar Allan Poe"
+				"Henry David Thoreau"
 			],
-			"cover": "f9914d68136078183cc0bf943097844998e506e0"
+			"cover": "92db4fdc4b6f86a49f22362fea2bff60b2b904cc"
+		},
+		{
+			"slug": "h-g-wells/the-time-machine",
+			"title": "The Time Machine",
+			"authors": [
+				"H. G. Wells"
+			],
+			"cover": "974914346ad9e79cf998605783ecd534716ce12c"
+		},
+		{
+			"slug": "friedrich-nietzsche/beyond-good-and-evil/helen-zimmern",
+			"title": "Beyond Good and Evil",
+			"authors": [
+				"Friedrich Nietzsche"
+			],
+			"cover": "b7fea881011ff7246fb8f68ced458629240bcc3c"
 		},
 		{
 			"slug": "edgar-rice-burroughs/a-princess-of-mars",
@@ -12152,6 +12200,54 @@
 				"Edgar Rice Burroughs"
 			],
 			"cover": "646164adf03df977cdd3f13d76f8ce62220d0888"
+		},
+		{
+			"slug": "edgar-allan-poe/the-narrative-of-arthur-gordon-pym-of-nantucket",
+			"title": "The Narrative of Arthur Gordon Pym of Nantucket",
+			"authors": [
+				"Edgar Allan Poe"
+			],
+			"cover": "f9914d68136078183cc0bf943097844998e506e0"
+		},
+		{
+			"slug": "bram-stoker/dracula",
+			"title": "Dracula",
+			"authors": [
+				"Bram Stoker"
+			],
+			"cover": "a02c17aca72aec342c861065c62cd25559a6d960"
+		},
+		{
+			"slug": "apsley-cherry-garrard/the-worst-journey-in-the-world",
+			"title": "The Worst Journey in the World",
+			"authors": [
+				"Apsley Cherry-Garrard"
+			],
+			"cover": "8977e6a8583785a97e3e5c824c4f8aae4278bd5c"
+		},
+		{
+			"slug": "anton-chekhov/short-fiction/constance-garnett",
+			"title": "Short Fiction",
+			"authors": [
+				"Anton Chekhov"
+			],
+			"cover": "60bcc831e41e80b6fb89e1c2525a354f2cdd2c74"
+		},
+		{
+			"slug": "alfred-lord-tennyson/idylls-of-the-king",
+			"title": "Idylls of the King",
+			"authors": [
+				"Alfred, Lord Tennyson"
+			],
+			"cover": "ade844c51b6257e170d6b978753cdbc4f3a1ec99"
+		},
+		{
+			"slug": "agatha-christie/the-mysterious-affair-at-styles",
+			"title": "The Mysterious Affair at Styles",
+			"authors": [
+				"Agatha Christie"
+			],
+			"cover": "874a507e8c66788c24dcd38bc8258dc9d259280c"
 		}
 	]
 }
