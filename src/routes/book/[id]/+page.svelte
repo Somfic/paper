@@ -7,7 +7,7 @@
 	import ReaderStatusBar from "$lib/components/reader/ReaderStatusBar.svelte";
 	import ReaderProgress from "$lib/components/reader/ReaderProgress.svelte";
 	import FootnotePopover from "$lib/components/reader/FootnotePopover.svelte";
-	import QuoteCard from "$lib/components/reader/QuoteCard.svelte";
+	import SelectionActions from "$lib/components/reader/SelectionActions.svelte";
 
 	const id = $derived(Number(page.params.id));
 
@@ -47,7 +47,7 @@
 	<ReaderProgress fraction={reader.fraction} />
 
 	<FootnotePopover footnotes={reader.footnotes} />
-	<QuoteCard {reader} />
+	<SelectionActions {reader} />
 </div>
 
 <style>

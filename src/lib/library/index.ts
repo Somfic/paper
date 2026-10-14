@@ -3,6 +3,7 @@
 // `characters`, all keyed by the same autoincrement id. There is no server, so a
 // shelf is per-browser and nothing ever leaves the device.
 
+import type { Annotation } from "$lib/reader/annotate.svelte";
 import type { CharacterIndex } from "$lib/reader/characters";
 
 /**
@@ -45,11 +46,12 @@ export type BookMetadata = Pick<
 >;
 
 const DB_NAME = "paper";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const BOOKS = "books";
 const FILES = "files";
 const COVERS = "covers";
 const CHARACTERS = "characters";
+const ANNOTATIONS = "annotations";
 
 /** localStorage key for a book's saved reading position (a CFI string). */
 export const posKey = (bookId: number) => `paper.pos.${bookId}`;
@@ -87,6 +89,17 @@ function openDb(): Promise<IDBDatabase> {
 			// scanned again next time it is opened; see reader/characters.
 			if (!db.objectStoreNames.contains(CHARACTERS))
 				db.createObjectStore(CHARACTERS);
+			// v4. One row per annotation (unlike characters/covers, which are one
+			// blob per book) — annotations are created and removed individually,
+			// so they need row-level CRUD, not "rewrite the whole thing." Indexed
+			// by bookId so a book's annotations are one indexed query, not a scan.
+			if (!db.objectStoreNames.contains(ANNOTATIONS)) {
+				const store = db.createObjectStore(ANNOTATIONS, {
+					keyPath: "id",
+					autoIncrement: true,
+				});
+				store.createIndex("bookId", "bookId");
+			}
 		};
 		req.onsuccess = () => resolve(req.result);
 		req.onerror = () => reject(req.error ?? new Error("failed to open the library"));
@@ -247,17 +260,63 @@ export async function putCharacters(
 	await done(tx);
 }
 
+/** Every annotation on `bookId`, via the `bookId` index — not a full scan. */
+export async function annotations(bookId: number): Promise<Annotation[]> {
+	const db = await openDb();
+	return wrap<Annotation[]>(
+		db
+			.transaction(ANNOTATIONS, "readonly")
+			.objectStore(ANNOTATIONS)
+			.index("bookId")
+			.getAll(bookId),
+	);
+}
+
+/**
+ * Create or overwrite an annotation. `id` comes from the object itself
+ * (the store's keyPath): omit it to create a new row — IndexedDB assigns
+ * the next id and hands it back — or include it to replace that exact row,
+ * which is what makes this the same function for both create and update.
+ */
+export async function putAnnotation(
+	annotation: Omit<Annotation, "id"> & { id?: number },
+): Promise<number> {
+	const db = await openDb();
+	const tx = db.transaction(ANNOTATIONS, "readwrite");
+	const id = await wrap<number>(tx.objectStore(ANNOTATIONS).put(annotation));
+	await done(tx);
+	return id;
+}
+
+/** Remove a single annotation by its own id (not the book's id). */
+export async function deleteAnnotation(id: number): Promise<void> {
+	const db = await openDb();
+	const tx = db.transaction(ANNOTATIONS, "readwrite");
+	tx.objectStore(ANNOTATIONS).delete(id);
+	await done(tx);
+}
+
+
 /**
  * Remove a book: its file, its cover, its cast, its reading position, its
  * dog-ears, and your notes on the people in it.
  */
 export async function remove(id: number): Promise<void> {
 	const db = await openDb();
-	const tx = db.transaction([BOOKS, FILES, COVERS, CHARACTERS], "readwrite");
+	const tx = db.transaction(
+		[BOOKS, FILES, COVERS, CHARACTERS, ANNOTATIONS],
+		"readwrite",
+	);
 	tx.objectStore(BOOKS).delete(id);
 	tx.objectStore(FILES).delete(id);
 	tx.objectStore(COVERS).delete(id);
 	tx.objectStore(CHARACTERS).delete(id);
+	// Annotations are keyed by their own id, not the book's — every row
+	// belonging to this book has to be found via the bookId index first.
+	const annotationIds = await wrap<IDBValidKey[]>(
+		tx.objectStore(ANNOTATIONS).index("bookId").getAllKeys(id),
+	);
+	for (const annotationId of annotationIds) tx.objectStore(ANNOTATIONS).delete(annotationId);
 	await done(tx);
 	try {
 		localStorage.removeItem(posKey(id));
